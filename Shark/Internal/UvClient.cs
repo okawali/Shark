@@ -12,6 +12,7 @@ namespace Shark.Server.Internal
         private MemoryStream _memStream = new MemoryStream();
         private int _state = 0;
         private Exception _exception = null;
+        private TaskCompletionSource<int> _taskCompletion = new TaskCompletionSource<int>();
 
         internal UvClient(Tcp tcp, UvServer server)
             : base(server)
@@ -50,24 +51,24 @@ namespace Shark.Server.Internal
             }
         }
 
-        public override Task<int> ReadAsync(byte[] buffer, int offset, int count)
+        public override async Task<int> ReadAsync(byte[] buffer, int offset, int count)
         {
             if (Disposed)
             {
                 throw new ObjectDisposedException(nameof(UvClient));
             }
 
+            await _taskCompletion.Task;
+
             switch (_state)
             {
-                case 0:
-                    return Task.FromResult(0);
                 case 1:
                 case 2:
-                    return _memStream.ReadAsync(buffer, 0, count);
+                    return await _memStream.ReadAsync(buffer, 0, count);
                 case -1:
-                    return Task.FromException<int>(_exception);
+                    return 0;
                 default:
-                    return Task.FromResult(0);
+                    return 0;
             }
         }
 
@@ -102,6 +103,7 @@ namespace Shark.Server.Internal
             var buffer = new byte[readableBuffer.Count];
             readableBuffer.ReadBytes(buffer, buffer.Length);
             _state = 1;
+            _taskCompletion.TrySetResult(1);
             _memStream.Write(buffer, 0, buffer.Length);
         }
 
