@@ -10,6 +10,8 @@ namespace Shark.Server.Internal
     {
         private Tcp _tcp;
         private MemoryStream _memStream = new MemoryStream();
+        private int _state = 0;
+        private Exception _exception = null;
 
         internal UvClient(Tcp tcp, UvServer server)
             : base(server)
@@ -32,6 +34,8 @@ namespace Shark.Server.Internal
                 taskCompletion.SetResult(0);
             });
 
+            _tcp.OnRead(OnAccept, OnError, OnCompleted);
+
             return taskCompletion.Task;
         }
 
@@ -46,49 +50,28 @@ namespace Shark.Server.Internal
             }
         }
 
-        public override Task<int> ReadAsync(byte[] buffer, int offset, int length)
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count)
         {
             if (Disposed)
             {
                 throw new ObjectDisposedException(nameof(UvClient));
             }
 
-            TaskCompletionSource<int> taskCompletion = new TaskCompletionSource<int>();
-
-            _tcp.OnRead((handle, readableBuffer) =>
+            switch (_state)
             {
-                int readableLength = (int)_memStream.Length + readableBuffer.Count;
-                int readedLength = Math.Min(length, readableLength);
-                var readedBytes = new byte[readedLength];
-
-                var readedFromMem = _memStream.Read(readedBytes, 0, readedLength);
-                var leftLength = readedLength - readedFromMem;
-
-                Buffer.BlockCopy(readedBytes, 0, buffer, offset, readedFromMem);
-                offset += readedFromMem;
-                if (leftLength > 0)
-                {
-                    readableBuffer.ReadBytes(readedBytes, leftLength);
-                    Buffer.BlockCopy(readedBytes, 0, buffer, offset, leftLength);
-                }
-
-                if (readableBuffer.Count > 0)
-                {
-                    var leftbytes = new byte[readableBuffer.Count];
-                    readableBuffer.ReadBytes(leftbytes, readableBuffer.Count);
-                    _memStream.Write(leftbytes, 0, leftbytes.Length);
-                }
-
-                taskCompletion.SetResult(readedLength);
-            }, (handle, exception) => 
-            {
-                taskCompletion.SetException(exception);
-            });
-
-            return taskCompletion.Task;
+                case 0:
+                    return Task.FromResult(0);
+                case 1:
+                case 2:
+                    return _memStream.ReadAsync(buffer, 0, count);
+                case -1:
+                    return Task.FromException<int>(_exception);
+                default:
+                    return Task.FromResult(0);
+            }
         }
 
-        public override Task WriteAsync(byte[] buffer, int offset, int length)
+        public override Task WriteAsync(byte[] buffer, int offset, int count)
         {
             if (Disposed)
             {
@@ -96,8 +79,8 @@ namespace Shark.Server.Internal
             }
 
             TaskCompletionSource<int> taskCompletion = new TaskCompletionSource<int>();
-            var copyedBuffer = new byte[length];
-            Buffer.BlockCopy(buffer, offset, copyedBuffer, 0, length);
+            var copyedBuffer = new byte[count];
+            Buffer.BlockCopy(buffer, offset, copyedBuffer, 0, count);
             var writableBuffer = WritableBuffer.From(copyedBuffer);
 
             _tcp.QueueWriteStream(writableBuffer, (handle, excetion) =>
@@ -112,6 +95,25 @@ namespace Shark.Server.Internal
             });
 
             return taskCompletion.Task;
+        }
+
+        private void OnAccept(Tcp tcp, ReadableBuffer readableBuffer)
+        {
+            var buffer = new byte[readableBuffer.Count];
+            readableBuffer.ReadBytes(buffer, buffer.Length);
+            _state = 1;
+            _memStream.Write(buffer, 0, buffer.Length);
+        }
+
+        private void OnError(Tcp tcp, Exception exception)
+        {
+            _state = -1;
+            _exception = exception;
+        }
+
+        private void OnCompleted(Tcp tcp)
+        {
+            _state = 2;
         }
     }
 }

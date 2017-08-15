@@ -29,8 +29,8 @@ namespace Shark.Server
             Server = server;
         }
 
-        public abstract Task<int> ReadAsync(byte[] buffer, int offset, int length);
-        public abstract Task WriteAsync(byte[] buffer, int offset, int length);
+        public abstract Task<int> ReadAsync(byte[] buffer, int offset, int count);
+        public abstract Task WriteAsync(byte[] buffer, int offset, int count);
         public abstract Task CloseAsync();
         public abstract void Dispose();
     }
