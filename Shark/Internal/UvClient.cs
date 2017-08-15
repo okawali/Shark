@@ -102,22 +102,32 @@ namespace Shark.Server.Internal
         {
             var buffer = new byte[readableBuffer.Count];
             readableBuffer.ReadBytes(buffer, buffer.Length);
-            _state = 1;
-            _taskCompletion.TrySetResult(1);
             _memStream.Write(buffer, 0, buffer.Length);
+
+            if (_state == 0)
+            {
+                _state = 1;
+                _taskCompletion.TrySetResult(1);
+            }
         }
 
         private void OnError(Tcp tcp, Exception exception)
         {
-            _state = -1;
-            _taskCompletion.TrySetException(exception);
             _exception = exception;
+            if (_state == 0)
+            {
+                _taskCompletion.TrySetException(exception);
+            }
         }
 
         private void OnCompleted(Tcp tcp)
         {
             _state = 2;
-            _taskCompletion.TrySetResult(2);
+
+            if (_state == 0)
+            {
+                _taskCompletion.TrySetResult(2);
+            }
         }
     }
 }
