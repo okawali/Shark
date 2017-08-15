@@ -110,6 +110,7 @@ namespace Shark.Server.Internal
         private void OnError(Tcp tcp, Exception exception)
         {
             _state = -1;
+            _taskCompletion.TrySetException(exception);
             _exception = exception;
         }
 
