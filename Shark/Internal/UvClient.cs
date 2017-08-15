@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using System.IO;
 using NetUV.Core.Handles;
 using NetUV.Core.Buffers;
+using System.Threading;
 
 namespace Shark.Internal
 {
@@ -13,6 +14,7 @@ namespace Shark.Internal
         private int _state = 0;
         private Exception _exception = null;
         private TaskCompletionSource<int> _taskCompletion = new TaskCompletionSource<int>();
+        private int _readerIndex = 0;
 
         internal UvClient(Tcp tcp, UvServer server)
             : base(server)
@@ -63,7 +65,12 @@ namespace Shark.Internal
             {
                 case 1:
                 case 2:
-                    return await _memStream.ReadAsync(buffer, 0, count);
+                    Monitor.Enter(_memStream);
+                    _memStream.Position = _readerIndex;
+                    var readed = await _memStream.ReadAsync(buffer, 0, count);
+                    _readerIndex += readed;
+                    Monitor.Enter(_memStream);
+                    return readed;
                 case -1:
                     return 0;
                 default:
@@ -101,7 +108,12 @@ namespace Shark.Internal
         {
             var buffer = new byte[readableBuffer.Count];
             readableBuffer.ReadBytes(buffer, buffer.Length);
-            _memStream.Write(buffer, 0, buffer.Length);
+
+            lock (_memStream)
+            {
+                _memStream.Position = _memStream.Length - 1;
+                _memStream.Write(buffer, 0, buffer.Length);
+            }
 
             if (_state == 0)
             {
