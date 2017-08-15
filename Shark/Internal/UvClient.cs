@@ -117,6 +117,7 @@ namespace Shark.Server.Internal
         private void OnCompleted(Tcp tcp)
         {
             _state = 2;
+            _taskCompletion.TrySetResult(2);
         }
     }
 }
