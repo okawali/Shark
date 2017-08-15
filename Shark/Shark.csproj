@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Norgerman.Cryptography.Scrypt" Version="1.1.0" />
+    <PackageReference Include="NetUV.Core" Version="0.1.120" />
+  </ItemGroup>
+  
+</Project>
