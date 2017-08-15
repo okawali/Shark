@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 
-namespace Shark.Server
+namespace Shark
 {
     abstract class SharkClient : IDisposable
     {

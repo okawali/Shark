@@ -1,5 +1,6 @@
 ﻿using System;
-using System.Threading.Tasks;
+using System.IO;
+using System.Text;
 
 namespace Shark
 {
@@ -7,7 +8,23 @@ namespace Shark
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
+            SharkServer server = SharkServer.Create();
+            var result = Encoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nContent-Type:text/plain\r\nContent-Length:12\r\n\r\nHello World!");
+            server
+                .OnClientConnected(async client =>
+                {
+                    using (var mem = new MemoryStream())
+                    {
+                        var buffer = new byte[1024];
+                        int readed = 0;
+                        while((readed = await client.ReadAsync(buffer, 0, 1024)) != 0)
+                        {
+                            mem.Write(buffer, 0, readed);
+                        }
+                        Console.WriteLine(Encoding.UTF8.GetString(mem.ToArray()));
+                        await client.WriteAsync(result, 0, result.Length);
+                    }
+                }).Bind("127.0.0.1", 12306).Start();
         }
     }
 }

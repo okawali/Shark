@@ -1,8 +1,9 @@
-﻿using System;
+﻿using Shark.Internal;
+using System;
 using System.Collections.Generic;
 using System.Net;
 
-namespace Shark.Server
+namespace Shark
 {
     abstract class SharkServer : IDisposable
     {
@@ -12,11 +13,20 @@ namespace Shark.Server
             protected set;
         }
 
+        protected Action<SharkClient> _onConnected;
+
         protected Dictionary<Guid, SharkClient> _clientMap = new Dictionary<Guid, SharkClient>();
 
         public abstract SharkServer Bind(IPEndPoint endPoint);
         public abstract void Start();
         public abstract void Dispose();
+
+        public SharkServer OnClientConnected(Action<SharkClient> onConnected)
+        {
+            _onConnected += onConnected;
+            return this;
+        }
+
 
         public SharkServer Bind(IPAddress address, int port)
         {
@@ -35,6 +45,11 @@ namespace Shark.Server
             {
                 client.Dispose();
             }
+        }
+
+        public static SharkServer Create()
+        {
+            return new UvServer();
         }
     }
 }

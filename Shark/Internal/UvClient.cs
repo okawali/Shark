@@ -4,7 +4,7 @@ using System.IO;
 using NetUV.Core.Handles;
 using NetUV.Core.Buffers;
 
-namespace Shark.Server.Internal
+namespace Shark.Internal
 {
     class UvClient : SharkClient
     {
@@ -18,6 +18,7 @@ namespace Shark.Server.Internal
             : base(server)
         {
             _tcp = tcp;
+            _tcp.OnRead(OnAccept, OnError, OnCompleted);
         }
 
         public override Task CloseAsync()
@@ -34,8 +35,6 @@ namespace Shark.Server.Internal
                 handle.Dispose();
                 taskCompletion.SetResult(0);
             });
-
-            _tcp.OnRead(OnAccept, OnError, OnCompleted);
 
             return taskCompletion.Task;
         }

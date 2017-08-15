@@ -1,10 +1,8 @@
-﻿using System.Threading.Tasks;
-using System.Net;
-using NetUV.Core.Buffers;
+﻿using System.Net;
 using NetUV.Core.Handles;
 using System;
 
-namespace Shark.Server.Internal
+namespace Shark.Internal
 {
     internal class UvServer : SharkServer
     {
@@ -39,6 +37,7 @@ namespace Shark.Server.Internal
 
             var sharkClient = new UvClient(client, this);
             _clientMap.Add(sharkClient.Id, sharkClient);
+            _onConnected?.Invoke(sharkClient);
         }
 
         public override void Dispose()
