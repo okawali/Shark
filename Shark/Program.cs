@@ -21,6 +21,7 @@ namespace Shark
                         {
                             mem.Write(buffer, 0, readed);
                         }
+                        Console.WriteLine(mem.Length);
                         Console.WriteLine(Encoding.UTF8.GetString(mem.ToArray()));
                         await client.WriteAsync(result, 0, result.Length);
                     }

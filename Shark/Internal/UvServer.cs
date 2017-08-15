@@ -1,6 +1,6 @@
-﻿using System.Net;
-using NetUV.Core.Handles;
+﻿using NetUV.Core.Handles;
 using System;
+using System.Net;
 
 namespace Shark.Internal
 {

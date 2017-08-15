@@ -1,9 +1,10 @@
-﻿using System;
-using System.Threading.Tasks;
-using System.IO;
+﻿using NetUV.Core.Buffers;
 using NetUV.Core.Handles;
-using NetUV.Core.Buffers;
+using System;
+using System.IO;
+using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Shark.Internal
 {
@@ -106,12 +107,15 @@ namespace Shark.Internal
 
         private void OnAccept(Tcp tcp, ReadableBuffer readableBuffer)
         {
-            var buffer = new byte[readableBuffer.Count];
-            readableBuffer.ReadBytes(buffer, buffer.Length);
+            //var buffer = new byte[readableBuffer.Count];
+            //readableBuffer.ReadBytes(buffer, buffer.Length);
+            
+            //because of a bug in netuv
+            var buffer = Encoding.UTF8.GetBytes(readableBuffer.ReadString(Encoding.UTF8));
 
             lock (_memStream)
             {
-                _memStream.Position = _memStream.Length - 1;
+                _memStream.Position = _memStream.Length;
                 _memStream.Write(buffer, 0, buffer.Length);
             }
 
