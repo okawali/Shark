@@ -70,7 +70,7 @@ namespace Shark.Internal
                     _memStream.Position = _readerIndex;
                     var readed = await _memStream.ReadAsync(buffer, 0, count);
                     _readerIndex += readed;
-                    Monitor.Enter(_memStream);
+                    Monitor.Exit(_memStream);
                     return readed;
                 case -1:
                     return 0;
