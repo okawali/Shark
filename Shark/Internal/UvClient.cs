@@ -73,7 +73,7 @@ namespace Shark.Internal
                     Monitor.Exit(_memStream);
                     return readed;
                 case -1:
-                    return 0;
+                    throw _exception;
                 default:
                     return 0;
             }
