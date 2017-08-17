@@ -1,8 +1,8 @@
 ﻿using NetUV.Core.Buffers;
 using NetUV.Core.Handles;
 using System;
-using System.IO;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace Shark.Internal
