@@ -10,9 +10,6 @@ namespace Shark.Internal
     class UvClient : SharkClient
     {
         private Tcp _tcp;
-        private int _state = 0;
-        private Exception _exception = null;
-        private TaskCompletionSource<int> _taskCompletion = new TaskCompletionSource<int>();
         private Queue<ReadableBuffer> _bufferQuene = new Queue<ReadableBuffer>();
         private TaskCompletionSource<bool> _avaliableTaskCompletion = new TaskCompletionSource<bool>();
 
@@ -62,64 +59,51 @@ namespace Shark.Internal
             }
         }
 
-        public override async Task<int> ReadAsync(byte[] buffer, int offset, int count)
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count)
         {
             if (Disposed)
             {
                 throw new ObjectDisposedException(nameof(UvClient));
             }
 
-            await _taskCompletion.Task;
-
-            switch (_state)
+            int readedCount = 0;
+            while (readedCount < count)
             {
-                case 1:
-                case 2:
+                if (_bufferQuene.TryPeek(out var data))
+                {
+                    bool dequeued = false;
+                    if (data.Count <= count - readedCount)
                     {
-                        int readedCount = 0;
-                        while (readedCount < count)
-                        {
-                            if (_bufferQuene.TryPeek(out var data))
-                            {
-                                bool dequeued = false;
-                                if (data.Count <= count - readedCount)
-                                {
-                                    dequeued = _bufferQuene.TryDequeue(out data);
-                                }
-                                var currentRead = Math.Min(count - readedCount, data.Count);
-
-                                //because of a bug in netuv
-                                for (var i = 0; i < currentRead; i++)
-                                {
-                                    buffer[readedCount + i] = data.ReadByte();
-                                }
-                                readedCount += currentRead;
-
-                                if (dequeued)
-                                {
-                                    data.Dispose();
-                                }
-                            }
-                            else
-                            {
-                                break;
-                            }
-                        }
-                        
-                        if (_bufferQuene.Count == 0 
-                            && _avaliableTaskCompletion.Task.IsCompletedSuccessfully
-                            && _avaliableTaskCompletion.Task.Result)
-                        {
-                            _avaliableTaskCompletion = new TaskCompletionSource<bool>();
-                        }
-
-                        return readedCount;
+                        dequeued = _bufferQuene.TryDequeue(out data);
                     }
-                case -1:
-                    throw _exception;
-                default:
-                    return 0;
+                    var currentRead = Math.Min(count - readedCount, data.Count);
+
+                    //because of a bug in netuv
+                    for (var i = 0; i < currentRead; i++)
+                    {
+                        buffer[readedCount + i] = data.ReadByte();
+                    }
+                    readedCount += currentRead;
+
+                    if (dequeued)
+                    {
+                        data.Dispose();
+                    }
+                }
+                else
+                {
+                    break;
+                }
             }
+
+            if (_bufferQuene.Count == 0
+                && _avaliableTaskCompletion.Task.IsCompletedSuccessfully
+                && _avaliableTaskCompletion.Task.Result)
+            {
+                _avaliableTaskCompletion = new TaskCompletionSource<bool>();
+            }
+
+            return Task.FromResult(readedCount);
         }
 
         public override Task WriteAsync(byte[] buffer, int offset, int count)
@@ -160,22 +144,10 @@ namespace Shark.Internal
             _bufferQuene.Enqueue(readableBuffer);
 
             _avaliableTaskCompletion.TrySetResult(true);
-
-            if (_state == 0)
-            {
-                _state = 1;
-                _taskCompletion.TrySetResult(1);
-            }
         }
 
         private void OnError(Tcp tcp, Exception exception)
         {
-            _exception = exception;
-            if (_state == 0)
-            {
-                _taskCompletion.TrySetException(exception);
-            }
-
             if (_avaliableTaskCompletion.Task.IsCompleted)
             {
                 _avaliableTaskCompletion = new TaskCompletionSource<bool>();
@@ -186,13 +158,6 @@ namespace Shark.Internal
 
         private void OnCompleted(Tcp tcp)
         {
-            _state = 2;
-
-            if (_state == 0)
-            {
-                _taskCompletion.TrySetResult(2);
-            }
-
             if (_avaliableTaskCompletion.Task.IsCompleted)
             {
                 _avaliableTaskCompletion = new TaskCompletionSource<bool>();
