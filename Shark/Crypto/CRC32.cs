@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 
 namespace Shark.Crypto
 {
-    public class CRC32 : HashAlgorithm
+    public class Crc32 : HashAlgorithm
     {
         private const uint Polynomial = 0xEDB88320;
 
@@ -11,12 +11,12 @@ namespace Shark.Crypto
 
         private uint hash;
 
-        static CRC32()
+        static Crc32()
         {
             InitCRC32Table();
         }
 
-        public CRC32()
+        public Crc32()
         {
             HashSizeValue = 32;
             Initialize();

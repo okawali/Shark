@@ -1,4 +1,6 @@
-﻿using Shark.Internal;
+﻿using Shark.Constants;
+using Shark.Data;
+using Shark.Internal;
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -23,7 +25,7 @@ namespace Shark
 
         protected SharkServer()
         {
-            _onConnected = OnClientConnected;
+            //_onConnected = OnClientConnected;
         }
 
         public SharkServer OnClientConnected(Action<SharkClient> onConnected)
@@ -54,7 +56,10 @@ namespace Shark
 
         private async void OnClientConnected(SharkClient client)
         {
-
+            var block = new BlockData() { Id = client.Id, Type = BlockType.HAND_SHAKE };
+            await client.WriteBlock(block);
+            block = await client.ReadBlock();
+            client.GenerateCryptoHelper(block.Data);
         }
 
         public static SharkServer Create()

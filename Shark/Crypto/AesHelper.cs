@@ -14,7 +14,7 @@ namespace Shark.Crypto
     /// default mode is cbc
     /// default paddingmode is pkcs7
     /// </summary>
-    public sealed class AesHelper : Aes
+    public sealed class AesHelper : Aes, ICryptoHelper
     {
         /// <summary>
         /// Create a instance use random key and iv
