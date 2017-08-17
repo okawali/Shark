@@ -22,7 +22,7 @@ namespace Shark
                         using (var mem = new MemoryStream())
                         {
                             int readed = 0;
-                            while ((readed = await client.ReadAsync(buffer, 0, 1024)) != 0)
+                            while ((readed = await client.ReadAsync(buffer, 0, 10)) != 0)
                             {
                                 mem.Write(buffer, 0, readed);
                             }

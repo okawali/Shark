@@ -76,8 +76,10 @@ namespace Shark.Internal
 
                     if (data.Position == data.Length)
                     {
-                        _bufferQuene.TryDequeue(out data);
-                        data.Dispose();
+                        if (_bufferQuene.TryDequeue(out data))
+                        {
+                            data.Dispose();
+                        }
                     }
                 }
                 else
