@@ -21,7 +21,7 @@ namespace Shark
             private set;
         }
 
-        public AesHelper AesHelper
+        public ICryptoHelper CryptoHelper
         {
             get;
             private set;
@@ -43,7 +43,7 @@ namespace Shark
         {
             var iv = ScryptUtil.Scrypt(passowrd, Id.ToByteArray(), 256, 8, 16, 16);
             var key = ScryptUtil.Scrypt(passowrd, iv, 512, 8, 16, 32);
-            AesHelper = new AesHelper(key, iv);
+            CryptoHelper = new AesHelper(key, iv);
         }
 
         public async Task<BlockData> ReadBlock()
