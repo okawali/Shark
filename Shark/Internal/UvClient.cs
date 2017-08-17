@@ -157,11 +157,6 @@ namespace Shark.Internal
 
         private void OnAccept(Tcp tcp, ReadableBuffer readableBuffer)
         {
-            //var buffer = new byte[readableBuffer.Count];
-            //readableBuffer.ReadBytes(buffer, buffer.Length);
-
-            //var buffer = Encoding.UTF8.GetBytes(readableBuffer.ReadString(Encoding.UTF8));
-
             _bufferQuene.Enqueue(readableBuffer);
 
             _avaliableTaskCompletion.TrySetResult(true);
