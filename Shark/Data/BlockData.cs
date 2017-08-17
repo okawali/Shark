@@ -14,7 +14,7 @@ namespace Shark.Data
         public uint Crc32 { set; get; }
         public int Length { set; get; }
         public byte[] Data { set; get; }
-        public ICryptoHelper CryptoHelper { set; get; }
+        public bool IsValid => Type != BlockType.INVALID;
 
         public uint ComputeCrc()
         {
@@ -42,18 +42,6 @@ namespace Shark.Data
         public void MarkInvalid()
         {
             Type = BlockType.INVALID;
-        }
-
-        public void EncryptData()
-        {
-            Data = CryptoHelper?.EncryptSingleBlock(Data, 0, Data.Length) ?? Data;
-            Length = Data.Length;
-        }
-
-        public void DecryptData()
-        {
-            Data = CryptoHelper?.DecryptSingleBlock(Data, 0, Data.Length) ?? Data;
-            Length = Data.Length;
         }
 
         public unsafe byte[] GenerateHeader()

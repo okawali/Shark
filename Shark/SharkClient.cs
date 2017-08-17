@@ -39,7 +39,7 @@ namespace Shark
             Server = server;
         }
 
-        public void GenerateCryptoHelper(byte[] passowrd)
+        public virtual void GenerateCryptoHelper(byte[] passowrd)
         {
             var iv = ScryptUtil.Scrypt(passowrd, Id.ToByteArray(), 256, 8, 16, 16);
             var key = ScryptUtil.Scrypt(passowrd, iv, 512, 8, 16, 32);
@@ -49,12 +49,11 @@ namespace Shark
         public async Task<BlockData> ReadBlock()
         {
             var block = await ReadHeader();
-            if (block.Type != BlockType.INVALID)
+            if (block.IsValid)
             {
                 block.Data = await ReadData(block.Length);
             }
             block.Check();
-            block.CryptoHelper = CryptoHelper;
             return block;
         }
 
@@ -66,6 +65,24 @@ namespace Shark
             if ((block.Data?.Length ?? 0) != 0)
             {
                 await WriteAsync(block.Data, 0, block.Data.Length);
+            }
+        }
+
+        public void EncryptBlock(ref BlockData block)
+        {
+            if (block.Data != null)
+            {
+                block.Data = CryptoHelper.EncryptSingleBlock(block.Data, 0, block.Data.Length);
+                block.Length = block.Data.Length;
+            }
+        }
+
+        public void DeccryptBlock(ref BlockData block)
+        {
+            if (block.Data != null && block.IsValid)
+            {
+                block.Data = CryptoHelper.DecryptSingleBlock(block.Data, 0, block.Data.Length);
+                block.Length = block.Data.Length;
             }
         }
 
