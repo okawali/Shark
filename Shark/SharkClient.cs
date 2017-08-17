@@ -72,7 +72,7 @@ namespace Shark
         {
             if (block.Data != null)
             {
-                block.Data = CryptoHelper.EncryptSingleBlock(block.Data, 0, block.Data.Length);
+                block.Data = CryptoHelper?.EncryptSingleBlock(block.Data, 0, block.Data.Length) ?? block.Data;
                 block.Length = block.Data.Length;
             }
         }
@@ -81,7 +81,7 @@ namespace Shark
         {
             if (block.Data != null && block.IsValid)
             {
-                block.Data = CryptoHelper.DecryptSingleBlock(block.Data, 0, block.Data.Length);
+                block.Data = CryptoHelper?.DecryptSingleBlock(block.Data, 0, block.Data.Length) ?? block.Data;
                 block.Length = block.Data.Length;
             }
         }
