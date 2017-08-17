@@ -1,9 +1,8 @@
 ﻿using NetUV.Core.Buffers;
 using NetUV.Core.Handles;
 using System;
-using System.IO;
+using System.Collections.Generic;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Shark.Internal
@@ -11,17 +10,17 @@ namespace Shark.Internal
     class UvClient : SharkClient
     {
         private Tcp _tcp;
-        private MemoryStream _memStream = new MemoryStream();
         private int _state = 0;
         private Exception _exception = null;
         private TaskCompletionSource<int> _taskCompletion = new TaskCompletionSource<int>();
-        private int _readerIndex = 0;
+        private Queue<ReadableBuffer> _bufferQuene = new Queue<ReadableBuffer>();
 
         internal UvClient(Tcp tcp, UvServer server)
             : base(server)
         {
             _tcp = tcp;
             _tcp.OnRead(OnAccept, OnError, OnCompleted);
+            _tcp.AddReference();
         }
 
         public override Task CloseAsync()
@@ -48,8 +47,9 @@ namespace Shark.Internal
             {
                 _tcp.CloseHandle(handle => handle.Dispose());
                 Disposed = true;
-                _memStream.Dispose();
                 Server.RemoveClient(Id);
+                _tcp.RemoveReference();
+                _tcp = null;
             }
         }
 
@@ -66,12 +66,38 @@ namespace Shark.Internal
             {
                 case 1:
                 case 2:
-                    Monitor.Enter(_memStream);
-                    _memStream.Position = _readerIndex;
-                    var readed = await _memStream.ReadAsync(buffer, 0, count);
-                    _readerIndex += readed;
-                    Monitor.Exit(_memStream);
-                    return readed;
+                    {
+                        int readedCount = 0;
+                        while (readedCount < count)
+                        {
+                            if (_bufferQuene.TryPeek(out var data))
+                            {
+                                bool dequeued = false;
+                                if (data.Count <= count - readedCount)
+                                {
+                                    dequeued = _bufferQuene.TryDequeue(out data);
+                                }
+                                var currentRead = Math.Min(count - readedCount, data.Count);
+
+                                //because of a bug in netuv
+                                for (var i = 0; i < currentRead; i++)
+                                {
+                                    buffer[readedCount + i] = data.ReadByte();
+                                }
+                                readedCount += currentRead;
+
+                                if (dequeued)
+                                {
+                                    data.Dispose();
+                                }
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+                        return readedCount;
+                    }
                 case -1:
                     throw _exception;
                 default:
@@ -93,13 +119,20 @@ namespace Shark.Internal
 
             _tcp.QueueWriteStream(writableBuffer, (handle, excetion) =>
             {
-                if (excetion != null)
+                try
                 {
-                    taskCompletion.SetException(excetion);
-                    return;
-                }
+                    if (excetion != null)
+                    {
+                        taskCompletion.SetException(excetion);
+                        return;
+                    }
 
-                taskCompletion.SetResult(0);
+                    taskCompletion.SetResult(0);
+                }
+                finally
+                {
+                    writableBuffer.Dispose();
+                }
             });
 
             return taskCompletion.Task;
@@ -109,15 +142,10 @@ namespace Shark.Internal
         {
             //var buffer = new byte[readableBuffer.Count];
             //readableBuffer.ReadBytes(buffer, buffer.Length);
-            
-            //because of a bug in netuv
-            var buffer = Encoding.UTF8.GetBytes(readableBuffer.ReadString(Encoding.UTF8));
 
-            lock (_memStream)
-            {
-                _memStream.Position = _memStream.Length;
-                _memStream.Write(buffer, 0, buffer.Length);
-            }
+            //var buffer = Encoding.UTF8.GetBytes(readableBuffer.ReadString(Encoding.UTF8));
+
+            _bufferQuene.Enqueue(readableBuffer);
 
             if (_state == 0)
             {
