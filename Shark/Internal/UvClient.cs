@@ -1,24 +1,24 @@
 ﻿using NetUV.Core.Buffers;
 using NetUV.Core.Handles;
 using System;
+using System.IO;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace Shark.Internal
 {
     class UvClient : SharkClient
     {
-        private Tcp _tcp;
-        private Queue<ReadableBuffer> _bufferQuene = new Queue<ReadableBuffer>();
-        private TaskCompletionSource<bool> _avaliableTaskCompletion = new TaskCompletionSource<bool>();
+        private const int DEFAULT_BUFFER_SIZE = 1024;
 
-        public override Task<bool> Avaliable
+        private Tcp _tcp;
+        private Queue<MemoryStream> _bufferQuene = new Queue<MemoryStream>();
+        private TaskCompletionSource<bool> _avaliableTaskCompletion = new TaskCompletionSource<bool>();
+        private TaskCompletionSource<bool> _completeTaskCompletion = new TaskCompletionSource<bool>();
+
+        public override async Task<bool> Avaliable()
         {
-            get
-            {
-                return _avaliableTaskCompletion.Task;
-            }
+            return await await Task.WhenAny(_avaliableTaskCompletion.Task, _completeTaskCompletion.Task);
         }
 
         internal UvClient(Tcp tcp, UvServer server)
@@ -66,27 +66,17 @@ namespace Shark.Internal
                 throw new ObjectDisposedException(nameof(UvClient));
             }
 
-            int readedCount = 0;
+            var readedCount = 0;
+            var tmpBuffer = new byte[DEFAULT_BUFFER_SIZE];
             while (readedCount < count)
             {
                 if (_bufferQuene.TryPeek(out var data))
                 {
-                    bool dequeued = false;
-                    if (data.Count <= count - readedCount)
-                    {
-                        dequeued = _bufferQuene.TryDequeue(out data);
-                    }
-                    var currentRead = Math.Min(count - readedCount, data.Count);
+                    readedCount += data.Read(buffer, offset + readedCount, count - readedCount);
 
-                    //because of a bug in netuv
-                    for (var i = 0; i < currentRead; i++)
+                    if (data.Position == data.Length)
                     {
-                        buffer[readedCount + i] = data.ReadByte();
-                    }
-                    readedCount += currentRead;
-
-                    if (dequeued)
-                    {
+                        _bufferQuene.TryDequeue(out data);
                         data.Dispose();
                     }
                 }
@@ -96,9 +86,7 @@ namespace Shark.Internal
                 }
             }
 
-            if (_bufferQuene.Count == 0
-                && _avaliableTaskCompletion.Task.IsCompletedSuccessfully
-                && _avaliableTaskCompletion.Task.Result)
+            if (_bufferQuene.Count == 0)
             {
                 _avaliableTaskCompletion = new TaskCompletionSource<bool>();
             }
@@ -111,6 +99,11 @@ namespace Shark.Internal
             if (Disposed)
             {
                 throw new ObjectDisposedException(nameof(UvClient));
+            }
+
+            if (!CanWrite)
+            {
+                throw new IOException($"{nameof(UvClient)} is not writable, remote closed");
             }
 
             TaskCompletionSource<int> taskCompletion = new TaskCompletionSource<int>();
@@ -141,29 +134,27 @@ namespace Shark.Internal
 
         private void OnAccept(Tcp tcp, ReadableBuffer readableBuffer)
         {
-            _bufferQuene.Enqueue(readableBuffer);
-
-            _avaliableTaskCompletion.TrySetResult(true);
+            using (readableBuffer)
+            {
+                if (readableBuffer.Count > 0)
+                {
+                    var buffer = new byte[readableBuffer.Count];
+                    readableBuffer.ReadBytes(buffer, readableBuffer.Count);
+                    _bufferQuene.Enqueue(new MemoryStream(buffer));
+                    _avaliableTaskCompletion.TrySetResult(true);
+                }
+            }
         }
 
         private void OnError(Tcp tcp, Exception exception)
         {
-            if (_avaliableTaskCompletion.Task.IsCompleted)
-            {
-                _avaliableTaskCompletion = new TaskCompletionSource<bool>();
-            }
-
-            _avaliableTaskCompletion.SetException(exception);
+            _completeTaskCompletion.SetException(exception);
         }
 
         private void OnCompleted(Tcp tcp)
         {
-            if (_avaliableTaskCompletion.Task.IsCompleted)
-            {
-                _avaliableTaskCompletion = new TaskCompletionSource<bool>();
-            }
-
-            _avaliableTaskCompletion.SetResult(false);
+            CanWrite = false;
+            _completeTaskCompletion.SetResult(false);
         }
     }
 }

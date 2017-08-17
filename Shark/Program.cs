@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Shark
 {
@@ -13,19 +14,28 @@ namespace Shark
             server
                 .OnClientConnected(async client =>
                 {
-                    while(await client.Avaliable)
+
+                    await Task.Delay(1000);
+                    var buffer = new byte[1024];
+                    while (await client.Avaliable())
                     {
                         using (var mem = new MemoryStream())
                         {
-                            var buffer = new byte[1024];
                             int readed = 0;
-                            while ((readed = await client.ReadAsync(buffer, 0, 10)) != 0)
+                            while ((readed = await client.ReadAsync(buffer, 0, 1024)) != 0)
                             {
                                 mem.Write(buffer, 0, readed);
                             }
+                            try
+                            {
+                                await client.WriteAsync(result, 0, result.Length);
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine(e);
+                            }
                             Console.WriteLine(mem.Length);
                             Console.WriteLine(Encoding.UTF8.GetString(mem.ToArray()));
-                            await client.WriteAsync(result, 0, result.Length);
                         }
                     }
                     Console.WriteLine("closed");

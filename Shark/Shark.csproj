@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Norgerman.Cryptography.Scrypt" Version="1.1.0" />
-    <PackageReference Include="NetUV.Core" Version="0.1.120" />
+    <PackageReference Include="NetUV.Core" Version="0.1.125" />
   </ItemGroup>
   
 </Project>
