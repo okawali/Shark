@@ -106,7 +106,9 @@ namespace Shark.Internal
                             }
                         }
                         
-                        if (_bufferQuene.Count == 0)
+                        if (_bufferQuene.Count == 0 
+                            && _avaliableTaskCompletion.Task.IsCompletedSuccessfully
+                            && _avaliableTaskCompletion.Task.Result)
                         {
                             _avaliableTaskCompletion = new TaskCompletionSource<bool>();
                         }
@@ -179,6 +181,11 @@ namespace Shark.Internal
                 _taskCompletion.TrySetException(exception);
             }
 
+            if (_avaliableTaskCompletion.Task.IsCompleted)
+            {
+                _avaliableTaskCompletion = new TaskCompletionSource<bool>();
+            }
+
             _avaliableTaskCompletion.TrySetException(exception);
         }
 
@@ -189,6 +196,11 @@ namespace Shark.Internal
             if (_state == 0)
             {
                 _taskCompletion.TrySetResult(2);
+            }
+
+            if (_avaliableTaskCompletion.Task.IsCompleted)
+            {
+                _avaliableTaskCompletion = new TaskCompletionSource<bool>();
             }
 
             _avaliableTaskCompletion.TrySetResult(false);
