@@ -186,7 +186,7 @@ namespace Shark.Internal
                 _avaliableTaskCompletion = new TaskCompletionSource<bool>();
             }
 
-            _avaliableTaskCompletion.TrySetException(exception);
+            _avaliableTaskCompletion.SetException(exception);
         }
 
         private void OnCompleted(Tcp tcp)
@@ -203,7 +203,7 @@ namespace Shark.Internal
                 _avaliableTaskCompletion = new TaskCompletionSource<bool>();
             }
 
-            _avaliableTaskCompletion.TrySetResult(false);
+            _avaliableTaskCompletion.SetResult(false);
         }
     }
 }
