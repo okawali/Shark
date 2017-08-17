@@ -21,6 +21,11 @@ namespace Shark
         public abstract void Start();
         public abstract void Dispose();
 
+        protected SharkServer()
+        {
+            _onConnected = OnClientConnected;
+        }
+
         public SharkServer OnClientConnected(Action<SharkClient> onConnected)
         {
             _onConnected += onConnected;
@@ -45,6 +50,11 @@ namespace Shark
             {
                 client.Dispose();
             }
+        }
+
+        private async void OnClientConnected(SharkClient client)
+        {
+
         }
 
         public static SharkServer Create()

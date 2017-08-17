@@ -14,6 +14,15 @@ namespace Shark.Internal
         private Exception _exception = null;
         private TaskCompletionSource<int> _taskCompletion = new TaskCompletionSource<int>();
         private Queue<ReadableBuffer> _bufferQuene = new Queue<ReadableBuffer>();
+        private TaskCompletionSource<bool> _avaliableTaskCompletion = new TaskCompletionSource<bool>();
+
+        public override Task<bool> Avaliable
+        {
+            get
+            {
+                return _avaliableTaskCompletion.Task;
+            }
+        }
 
         internal UvClient(Tcp tcp, UvServer server)
             : base(server)
@@ -96,6 +105,12 @@ namespace Shark.Internal
                                 break;
                             }
                         }
+                        
+                        if (_bufferQuene.Count == 0)
+                        {
+                            _avaliableTaskCompletion = new TaskCompletionSource<bool>();
+                        }
+
                         return readedCount;
                     }
                 case -1:
@@ -147,6 +162,8 @@ namespace Shark.Internal
 
             _bufferQuene.Enqueue(readableBuffer);
 
+            _avaliableTaskCompletion.TrySetResult(true);
+
             if (_state == 0)
             {
                 _state = 1;
@@ -161,6 +178,8 @@ namespace Shark.Internal
             {
                 _taskCompletion.TrySetException(exception);
             }
+
+            _avaliableTaskCompletion.TrySetException(exception);
         }
 
         private void OnCompleted(Tcp tcp)
@@ -171,6 +190,8 @@ namespace Shark.Internal
             {
                 _taskCompletion.TrySetResult(2);
             }
+
+            _avaliableTaskCompletion.TrySetResult(false);
         }
     }
 }

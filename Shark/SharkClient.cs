@@ -33,5 +33,9 @@ namespace Shark
         public abstract Task WriteAsync(byte[] buffer, int offset, int count);
         public abstract Task CloseAsync();
         public abstract void Dispose();
+        public abstract Task<bool> Avaliable
+        {
+            get;
+        }
     }
 }

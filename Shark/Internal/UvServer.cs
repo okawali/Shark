@@ -10,6 +10,7 @@ namespace Shark.Internal
         private Tcp _tcp;
 
         internal UvServer()
+            : base()
         {
             _loop = new Loop();
             _tcp = _loop.CreateTcp()
