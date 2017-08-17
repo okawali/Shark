@@ -54,6 +54,7 @@ namespace Shark
                 block.Data = await ReadData(block.Length);
             }
             block.Check();
+            block.CryptoHelper = CryptoHelper;
             return block;
         }
 

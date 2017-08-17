@@ -14,8 +14,7 @@ namespace Shark.Data
         public uint Crc32 { set; get; }
         public int Length { set; get; }
         public byte[] Data { set; get; }
-
-        ICryptoHelper CryptoHelper { set; get; }
+        public ICryptoHelper CryptoHelper { set; get; }
 
         public uint ComputeCrc()
         {
