@@ -4,6 +4,7 @@ using System.IO;
 using System.Net;
 using System.Threading.Tasks;
 using System.Text;
+using Microsoft.Extensions.Logging;
 
 namespace Shark
 {
@@ -11,7 +12,7 @@ namespace Shark
     {
         static void Main(string[] args)
         {
-            LogFactory.AddConsoleProvider();
+            LogFactory.AddConsoleProvider(LogLevel.Information);
             //Server
             //ISharkServer server = SharkServer.Create();
             //var result = Encoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nContent-Type:text/plain\r\nContent-Length:12\r\n\r\nHello World!");
@@ -51,7 +52,7 @@ namespace Shark
 
             //client 
             var client = Internal.UvSocketClient.ConnectTo(new IPEndPoint(IPAddress.Parse("115.239.211.112"), 80)).Result;
-            var data = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: www.baidu.com\r\nConnection: Close\r\n\r\n");
+            var data = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: www.baidu.com\r\nConnection: keep-alive\r\n\r\n");
             client.WriteAsync(data, 0, data.Length).Wait();
             var buffer = new byte[1024];
             using (var stream = new MemoryStream())

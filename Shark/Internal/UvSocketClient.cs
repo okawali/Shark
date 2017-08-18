@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Shark.Internal
@@ -32,6 +33,8 @@ namespace Shark.Internal
 
         private Tcp _tcp;
         private Loop _loop;
+        private int _readTimeout;
+        private System.Threading.Timer _readTimer;
         private Queue<MemoryStream> _bufferQuene = new Queue<MemoryStream>();
         private TaskCompletionSource<bool> _avaliableTaskCompletion = new TaskCompletionSource<bool>();
         private TaskCompletionSource<bool> _completeTaskCompletion = new TaskCompletionSource<bool>();
@@ -41,9 +44,10 @@ namespace Shark.Internal
             return await await Task.WhenAny(_avaliableTaskCompletion.Task, _completeTaskCompletion.Task);
         }
 
-        internal UvSocketClient(Tcp tcp, Guid? id = null, Loop loop = null)
+        internal UvSocketClient(Tcp tcp, Guid? id = null, Loop loop = null, int readTimeout = Timeout.Infinite)
         {
             _tcp = tcp;
+            _tcp.AddReference();
             if (id != null)
             {
                 Id = id.Value;
@@ -55,6 +59,11 @@ namespace Shark.Internal
             _tcp.OnRead(OnAccept, OnError, OnCompleted);
             CanWrite = true;
             _loop = loop;
+            _readTimeout = readTimeout;
+            if (_readTimeout != Timeout.Infinite)
+            {
+                _readTimer = new System.Threading.Timer(OnReadTimeout, null, _readTimeout, Timeout.Infinite);
+            }
         }
 
         public Task CloseAsync()
@@ -87,10 +96,11 @@ namespace Shark.Internal
             if (!Disposed)
             {
                 _tcp.CloseHandle(handle => handle.Dispose());
-                Disposed = true;
                 _loop?.Dispose();
+                _readTimer?.Dispose();
                 _tcp.RemoveReference();
                 _tcp = null;
+                Disposed = true;
             }
         }
 
@@ -180,18 +190,24 @@ namespace Shark.Internal
                     _bufferQuene.Enqueue(new MemoryStream(buffer));
                     _avaliableTaskCompletion.TrySetResult(true);
                 }
+                _readTimer?.Change(_readTimeout, Timeout.Infinite);
             }
         }
 
         private void OnError(Tcp tcp, Exception exception)
         {
-            _completeTaskCompletion.SetException(exception);
+            _completeTaskCompletion.TrySetException(exception);
         }
 
         private void OnCompleted(Tcp tcp)
         {
             CanWrite = false;
-            _completeTaskCompletion.SetResult(false);
+            _completeTaskCompletion.TrySetResult(false);
+        }
+
+        private void OnReadTimeout(object state)
+        {
+            _completeTaskCompletion.TrySetResult(false);
         }
 
         public static Task<ISocketClient> ConnectTo(IPEndPoint endPoint)
@@ -211,7 +227,7 @@ namespace Shark.Internal
                         }
                         else
                         {
-                            completionSource.SetResult(new UvSocketClient(tcp, null, loop));
+                            completionSource.SetResult(new UvSocketClient(tcp, null, loop, 5000));
                         }
                     });
                 loop.RunDefault();
