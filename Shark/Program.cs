@@ -1,8 +1,9 @@
-﻿using System;
+﻿using NetUV.Core.Logging;
+using System;
 using System.IO;
 using System.Net;
-using System.Text;
 using System.Threading.Tasks;
+using System.Text;
 
 namespace Shark
 {
@@ -10,6 +11,7 @@ namespace Shark
     {
         static void Main(string[] args)
         {
+            LogFactory.AddConsoleProvider();
             //Server
             //ISharkServer server = SharkServer.Create();
             //var result = Encoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nContent-Type:text/plain\r\nContent-Length:12\r\n\r\nHello World!");
@@ -54,20 +56,10 @@ namespace Shark
             var buffer = new byte[1024];
             using (var stream = new MemoryStream())
             {
-                var avaliable = client.Avaliable().Result;
-                while (avaliable)
+                while (client.Avaliable().Result)
                 {
                     var readed = client.ReadAsync(buffer, 0, 1024).Result;
                     stream.Write(buffer, 0, readed);
-                    var t = client.Avaliable();
-                    if (t.Wait(3000))
-                    {
-                        avaliable = t.Result;
-                    }
-                    else
-                    {
-                        avaliable = false;
-                    }
                 }
                 Console.WriteLine(Encoding.UTF8.GetString(stream.ToArray()));
                 client.CloseAsync().Wait();

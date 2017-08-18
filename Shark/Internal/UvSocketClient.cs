@@ -197,21 +197,25 @@ namespace Shark.Internal
         public static Task<ISocketClient> ConnectTo(IPEndPoint endPoint)
         {
             var completionSource = new TaskCompletionSource<ISocketClient>();
-            var loop = new Loop();
-            loop.CreateTcp()
-                .NoDelay(true)
-                .ConnectTo(endPoint, (tcp, e) =>
-                {
-                    if (e != null)
+            
+            Task.Run(() => 
+            {
+                var loop = new Loop();
+                loop.CreateTcp()
+                    .NoDelay(true)
+                    .ConnectTo(endPoint, (tcp, e) =>
                     {
-                        completionSource.SetException(e);
-                    }
-                    else
-                    {
-                        completionSource.SetResult(new UvSocketClient(tcp, null, loop));
-                    }
-                });
-            Task.Run(() => loop.RunDefault());
+                        if (e != null)
+                        {
+                            completionSource.SetException(e);
+                        }
+                        else
+                        {
+                            completionSource.SetResult(new UvSocketClient(tcp, null, loop));
+                        }
+                    });
+                loop.RunDefault();
+            });
             return completionSource.Task;
         }
     }
