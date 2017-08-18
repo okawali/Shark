@@ -36,6 +36,7 @@ namespace Shark
         }
 
         public bool Disposed => _disposed;
+
         private bool _disposed = false;
 
         public SharkClient(SharkServer server)

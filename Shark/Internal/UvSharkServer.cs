@@ -50,6 +50,7 @@ namespace Shark.Internal
                     _tcp.CloseHandle(handle => handle.Dispose());
                 }
             }
+
             base.Dispose(disposing);
         }
     }
