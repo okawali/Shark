@@ -7,7 +7,7 @@ using System.Net;
 
 namespace Shark
 {
-    abstract class SharkServer : IDisposable
+    public abstract class SharkServer : ISharkServer
     {
         public bool Disposed
         {
@@ -15,39 +15,49 @@ namespace Shark
             protected set;
         }
 
-        protected Action<SharkClient> _onConnected;
+        public IDictionary<Guid, ISocketClient> Clients => _clients;
 
-        protected Dictionary<Guid, SharkClient> _clientMap = new Dictionary<Guid, SharkClient>();
+        public event Action<ISharkClient> OnConnected
+        {
+            add
+            {
+                _onConnected += value;
+            }
+            remove
+            {
+                _onConnected -= value;
+            }
+        }
 
-        public abstract SharkServer Bind(IPEndPoint endPoint);
-        public abstract void Start();
-        public abstract void Dispose();
+        protected Action<ISharkClient> _onConnected;
+
+        protected Dictionary<Guid, ISocketClient> _clients = new Dictionary<Guid, ISocketClient>();
 
         protected SharkServer()
         {
             //_onConnected = OnClientConnected;
         }
 
-        public SharkServer OnClientConnected(Action<SharkClient> onConnected)
+        public ISharkServer OnClientConnected(Action<ISharkClient> onConnected)
         {
             _onConnected += onConnected;
             return this;
         }
 
 
-        public SharkServer Bind(IPAddress address, int port)
+        public ISharkServer Bind(IPAddress address, int port)
         {
             return Bind(new IPEndPoint(address, port));
         }
 
-        public SharkServer Bind(string address, int port)
+        public ISharkServer Bind(string address, int port)
         {
             return Bind(IPAddress.Parse(address), port);
         }
 
         public void RemoveClient(Guid id)
         {
-            _clientMap.Remove(id, out var client);
+            _clients.Remove(id, out var client);
             if (!client?.Disposed ?? true)
             {
                 client.Dispose();
@@ -62,9 +72,13 @@ namespace Shark
             client.GenerateCryptoHelper(block.Data);
         }
 
-        public static SharkServer Create()
+        public abstract ISharkServer Bind(IPEndPoint endPoint);
+        public abstract void Start();
+        public abstract void Dispose();
+
+        public static ISharkServer Create()
         {
-            return new UvServer();
+            return new UvSharkServer();
         }
     }
 }

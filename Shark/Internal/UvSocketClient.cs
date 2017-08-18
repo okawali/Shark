@@ -3,37 +3,73 @@ using NetUV.Core.Handles;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace Shark.Internal
 {
-    class UvClient : SharkClient
+    class UvSocketClient : ISocketClient
     {
+        public Guid Id
+        {
+            get;
+            private set;
+        }
+
+        public bool Disposed
+        {
+            get;
+            private set;
+        }
+
+        public bool CanWrite
+        {
+            get;
+            private set;
+        }
+
         private const int DEFAULT_BUFFER_SIZE = 1024;
 
         private Tcp _tcp;
+        private Loop _loop;
         private Queue<MemoryStream> _bufferQuene = new Queue<MemoryStream>();
         private TaskCompletionSource<bool> _avaliableTaskCompletion = new TaskCompletionSource<bool>();
         private TaskCompletionSource<bool> _completeTaskCompletion = new TaskCompletionSource<bool>();
 
-        public override async Task<bool> Avaliable()
+        public async Task<bool> Avaliable()
         {
             return await await Task.WhenAny(_avaliableTaskCompletion.Task, _completeTaskCompletion.Task);
         }
 
-        internal UvClient(Tcp tcp, UvServer server)
-            : base(server)
+        internal UvSocketClient(Tcp tcp, Guid? id = null, Loop loop = null)
         {
             _tcp = tcp;
+            if (id != null)
+            {
+                Id = id.Value;
+            }
+            else
+            {
+                Id = Guid.NewGuid();
+            }
             _tcp.OnRead(OnAccept, OnError, OnCompleted);
-            _tcp.AddReference();
+            CanWrite = true;
+            _loop = loop;
         }
 
-        public override Task CloseAsync()
+        public Task CloseAsync()
         {
             if (Disposed)
             {
-                throw new ObjectDisposedException(nameof(UvClient));
+                throw new ObjectDisposedException(nameof(UvSharkClient));
+            }
+
+            if (_loop != null)
+            {
+                _loop.Stop();
+                _tcp.CloseHandle();
+                return Task.FromResult(0);
             }
 
             TaskCompletionSource<int> taskCompletion = new TaskCompletionSource<int>();
@@ -47,23 +83,23 @@ namespace Shark.Internal
             return taskCompletion.Task;
         }
 
-        public override void Dispose()
+        public void Dispose()
         {
             if (!Disposed)
             {
                 _tcp.CloseHandle(handle => handle.Dispose());
                 Disposed = true;
-                Server.RemoveClient(Id);
+                _loop?.Dispose();
                 _tcp.RemoveReference();
                 _tcp = null;
             }
         }
 
-        public override Task<int> ReadAsync(byte[] buffer, int offset, int count)
+        public Task<int> ReadAsync(byte[] buffer, int offset, int count)
         {
             if (Disposed)
             {
-                throw new ObjectDisposedException(nameof(UvClient));
+                throw new ObjectDisposedException(nameof(UvSharkClient));
             }
 
             var readedCount = 0;
@@ -96,16 +132,16 @@ namespace Shark.Internal
             return Task.FromResult(readedCount);
         }
 
-        public override Task WriteAsync(byte[] buffer, int offset, int count)
+        public Task WriteAsync(byte[] buffer, int offset, int count)
         {
             if (Disposed)
             {
-                throw new ObjectDisposedException(nameof(UvClient));
+                throw new ObjectDisposedException(nameof(UvSharkClient));
             }
 
             if (!CanWrite)
             {
-                throw new IOException($"{nameof(UvClient)} is not writable, remote closed");
+                throw new IOException($"{nameof(UvSharkClient)} is not writable, remote closed");
             }
 
             TaskCompletionSource<int> taskCompletion = new TaskCompletionSource<int>();
@@ -157,6 +193,27 @@ namespace Shark.Internal
         {
             CanWrite = false;
             _completeTaskCompletion.SetResult(false);
+        }
+
+        public static Task<ISocketClient> ConnectTo(IPEndPoint endPoint)
+        {
+            var completionSource = new TaskCompletionSource<ISocketClient>();
+            var loop = new Loop();
+            loop.CreateTcp()
+                .NoDelay(true)
+                .ConnectTo(endPoint, (tcp, e) =>
+                {
+                    if (e != null)
+                    {
+                        completionSource.SetException(e);
+                    }
+                    else
+                    {
+                        completionSource.SetResult(new UvSocketClient(tcp, null, loop));
+                    }
+                });
+            Task.Run(() => loop.RunDefault());
+            return completionSource.Task;
         }
     }
 }

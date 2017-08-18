@@ -4,10 +4,12 @@ using Shark.Crypto;
 using Shark.Data;
 using System;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Net;
 
 namespace Shark
 {
-    abstract class SharkClient : IDisposable
+    abstract class SharkClient : ISharkClient
     {
         public Guid Id
         {
@@ -15,7 +17,7 @@ namespace Shark
             private set;
         }
 
-        public SharkServer Server
+        public ISharkServer Server
         {
             get;
             private set;
@@ -27,23 +29,17 @@ namespace Shark
             private set;
         }
 
-        public bool Disposed
+        public IDictionary<Guid, ISocketClient> HttpClients
         {
             get;
-            protected set;
-        }
-
-        public bool CanWrite
-        {
-            get;
-            protected set;
+            private set;
         }
 
         public SharkClient(SharkServer server)
         {
             Id = Guid.NewGuid();
             Server = server;
-            CanWrite = true;
+            HttpClients = new Dictionary<Guid, ISocketClient>();
         }
 
         public virtual void GenerateCryptoHelper(byte[] passowrd)
@@ -53,7 +49,7 @@ namespace Shark
             CryptoHelper = new AesHelper(key, iv);
         }
 
-        public async Task<BlockData> ReadBlock()
+        public virtual async Task<BlockData> ReadBlock()
         {
             var block = await ReadHeader();
             if (block.IsValid)
@@ -64,7 +60,7 @@ namespace Shark
             return block;
         }
 
-        public async Task WriteBlock(BlockData block)
+        public virtual async Task WriteBlock(BlockData block)
         {
             var header = block.GenerateHeader();
             await WriteAsync(header, 0, header.Length);
@@ -140,10 +136,32 @@ namespace Shark
             return data;
         }
 
+
+        public Task<ISocketClient> ConnectTo(IPAddress address, int port)
+        {
+            return ConnectTo(new IPEndPoint(address, port));
+        }
+
+        virtual async public Task<ISocketClient> ConnectTo(string address, int port)
+        {
+            if (IPAddress.TryParse(address, out var ip))
+            {
+                return await ConnectTo(ip, port);
+            }
+            else
+            {
+                var addressList = await Dns.GetHostAddressesAsync(address);
+                return await ConnectTo(addressList[0], port);
+            }
+        }
+
+        public abstract bool Disposed { get; }
+        public abstract bool CanWrite { get; }
         public abstract Task<bool> Avaliable();
         public abstract Task<int> ReadAsync(byte[] buffer, int offset, int count);
         public abstract Task WriteAsync(byte[] buffer, int offset, int count);
         public abstract Task CloseAsync();
         public abstract void Dispose();
+        public abstract Task<ISocketClient> ConnectTo(IPEndPoint endPoint);
     }
 }

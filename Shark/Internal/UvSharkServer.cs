@@ -4,12 +4,12 @@ using System.Net;
 
 namespace Shark.Internal
 {
-    internal class UvServer : SharkServer
+    internal class UvSharkServer : SharkServer
     {
         private Loop _loop;
         private Tcp _tcp;
 
-        internal UvServer()
+        internal UvSharkServer()
             : base()
         {
             _loop = new Loop();
@@ -17,7 +17,7 @@ namespace Shark.Internal
                     .SimultaneousAccepts(true);
         }
 
-        public override SharkServer Bind(IPEndPoint endPoint)
+        public override ISharkServer Bind(IPEndPoint endPoint)
         {
             _tcp.Listen(endPoint, OnClientConnect);
             return this;
@@ -36,8 +36,8 @@ namespace Shark.Internal
                 return;
             }
 
-            var sharkClient = new UvClient(client, this);
-            _clientMap.Add(sharkClient.Id, sharkClient);
+            var sharkClient = new UvSharkClient(client, this);
+            _clients.Add(sharkClient.Id, sharkClient);
             _onConnected?.Invoke(sharkClient);
         }
 
