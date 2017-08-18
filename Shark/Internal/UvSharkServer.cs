@@ -4,7 +4,7 @@ using System.Net;
 
 namespace Shark.Internal
 {
-    internal class UvSharkServer : SharkServer
+    sealed internal class UvSharkServer : SharkServer
     {
         private Loop _loop;
         private Tcp _tcp;
@@ -41,13 +41,16 @@ namespace Shark.Internal
             _onConnected?.Invoke(sharkClient);
         }
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
             if (!Disposed)
             {
-                _tcp.CloseHandle(handle => handle.Dispose());
-                Disposed = true;
+                if (disposing)
+                {
+                    _tcp.CloseHandle(handle => handle.Dispose());
+                }
             }
+            base.Dispose(disposing);
         }
     }
 }

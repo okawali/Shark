@@ -9,11 +9,7 @@ namespace Shark
 {
     public abstract class SharkServer : ISharkServer
     {
-        public bool Disposed
-        {
-            get;
-            protected set;
-        }
+        public bool Disposed => _disposed;
 
         public IDictionary<Guid, ISocketClient> Clients => _clients;
 
@@ -30,8 +26,8 @@ namespace Shark
         }
 
         protected Action<ISharkClient> _onConnected;
-
         protected Dictionary<Guid, ISocketClient> _clients = new Dictionary<Guid, ISocketClient>();
+        private bool _disposed = false;
 
         protected SharkServer()
         {
@@ -57,11 +53,7 @@ namespace Shark
 
         public void RemoveClient(Guid id)
         {
-            _clients.Remove(id, out var client);
-            if (!client?.Disposed ?? true)
-            {
-                client.Dispose();
-            }
+            _clients.Remove(id);
         }
 
         private async void OnClientConnected(SharkClient client)
@@ -72,9 +64,26 @@ namespace Shark
             client.GenerateCryptoHelper(block.Data);
         }
 
+        #region IDisposable Support
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                }
+                _disposed = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+        }
+        #endregion
+
         public abstract ISharkServer Bind(IPEndPoint endPoint);
         public abstract void Start();
-        public abstract void Dispose();
 
         public static ISharkServer Create()
         {

@@ -4,11 +4,9 @@ using System.Net;
 
 namespace Shark.Internal
 {
-    class UvSharkClient : SharkClient
+    sealed internal class UvSharkClient : SharkClient
     {
         private ISocketClient _socketClient;
-
-        public override bool Disposed => _socketClient.Disposed;
 
         public override bool CanWrite => _socketClient.CanWrite;
 
@@ -31,14 +29,18 @@ namespace Shark.Internal
 
         public override Task CloseAsync() => _socketClient.CloseAsync();
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
             if (!Disposed)
             {
-                _socketClient.Dispose();
-                Server.RemoveClient(Id);
-                _socketClient = null;
+                if (disposing)
+                {
+                    _socketClient.Dispose();
+                    _socketClient = null;
+                }
             }
+
+            base.Dispose(disposing);
         }
 
         public override Task<int> ReadAsync(byte[] buffer, int offset, int count) => _socketClient.ReadAsync(buffer, offset, count);

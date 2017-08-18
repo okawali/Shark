@@ -35,6 +35,9 @@ namespace Shark
             private set;
         }
 
+        public bool Disposed => _disposed;
+        private bool _disposed = false;
+
         public SharkClient(SharkServer server)
         {
             Id = Guid.NewGuid();
@@ -155,13 +158,30 @@ namespace Shark
             }
         }
 
-        public abstract bool Disposed { get; }
+        #region IDisposable Support
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    Server.RemoveClient(Id);
+                }
+                _disposed = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+        }
+        #endregion
+
         public abstract bool CanWrite { get; }
         public abstract Task<bool> Avaliable();
         public abstract Task<int> ReadAsync(byte[] buffer, int offset, int count);
         public abstract Task WriteAsync(byte[] buffer, int offset, int count);
         public abstract Task CloseAsync();
-        public abstract void Dispose();
         public abstract Task<ISocketClient> ConnectTo(IPEndPoint endPoint);
     }
 }

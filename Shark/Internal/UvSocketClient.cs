@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Shark.Internal
 {
-    class UvSocketClient : ISocketClient
+    sealed internal class UvSocketClient : ISocketClient
     {
         public Guid Id
         {
