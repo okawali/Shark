@@ -7,7 +7,6 @@ namespace Shark.Internal
 {
     sealed internal class UvSharkClient : SharkClient
     {
-
         public override bool CanWrite => _socketClient.CanWrite;
         public override ILogger Logger => _logger;
 
