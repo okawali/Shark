@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
 using System.Net;
 
@@ -9,6 +10,10 @@ namespace Shark
         bool Disposed { get; }
         IDictionary<Guid, ISocketClient> Clients { get; }
         event Action<ISharkClient> OnConnected;
+        ILoggerFactory LoggerFactory { get; }
+        ILogger Logger { get; }
+
+        ISharkServer ConfigureLogger(Action<ILoggerFactory> configure);
         ISharkServer Bind(IPAddress address, int port);
         ISharkServer Bind(string address, int port);
         ISharkServer Bind(IPEndPoint endPoint);

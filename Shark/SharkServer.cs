@@ -1,4 +1,5 @@
-﻿using Shark.Constants;
+﻿using Microsoft.Extensions.Logging;
+using Shark.Constants;
 using Shark.Data;
 using Shark.Internal;
 using System;
@@ -10,8 +11,9 @@ namespace Shark
     public abstract class SharkServer : ISharkServer
     {
         public bool Disposed => _disposed;
-
         public IDictionary<Guid, ISocketClient> Clients => _clients;
+        public virtual ILoggerFactory LoggerFactory => _loggerFactory;
+        public abstract ILogger Logger { get; }
 
         public event Action<ISharkClient> OnConnected
         {
@@ -28,15 +30,23 @@ namespace Shark
         protected Action<ISharkClient> _onConnected;
         protected Dictionary<Guid, ISocketClient> _clients = new Dictionary<Guid, ISocketClient>();
         private bool _disposed = false;
+        private ILoggerFactory _loggerFactory;
 
         protected SharkServer()
         {
             //_onConnected = OnClientConnected;
+            _loggerFactory = new LoggerFactory();
         }
 
         public ISharkServer OnClientConnected(Action<ISharkClient> onConnected)
         {
             _onConnected += onConnected;
+            return this;
+        }
+
+        public ISharkServer ConfigureLogger(Action<ILoggerFactory> configure)
+        {
+            configure?.Invoke(LoggerFactory);
             return this;
         }
 
@@ -56,7 +66,7 @@ namespace Shark
             _clients.Remove(id);
         }
 
-        private async void OnClientConnected(SharkClient client)
+        protected virtual async void OnClientConnected(SharkClient client)
         {
             var block = new BlockData() { Id = client.Id, Type = BlockType.HAND_SHAKE };
             await client.WriteBlock(block);

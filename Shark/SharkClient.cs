@@ -6,36 +6,21 @@ using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Net;
+using Microsoft.Extensions.Logging;
 
 namespace Shark
 {
-    abstract class SharkClient : ISharkClient
+    public abstract class SharkClient : ISharkClient
     {
-        public Guid Id
-        {
-            get;
-            private set;
-        }
-
-        public ISharkServer Server
-        {
-            get;
-            private set;
-        }
-
-        public ICryptoHelper CryptoHelper
-        {
-            get;
-            private set;
-        }
-
-        public IDictionary<Guid, ISocketClient> HttpClients
-        {
-            get;
-            private set;
-        }
-
+        public Guid Id { get; private set; }
+        public ISharkServer Server { get; private set; }
+        public ICryptoHelper CryptoHelper { get; private set; }
+        public IDictionary<Guid, ISocketClient> HttpClients { get; private set; }
+        public virtual ILoggerFactory LoggerFactory => Server.LoggerFactory;
         public bool Disposed => _disposed;
+
+        public abstract bool CanWrite { get; }
+        public abstract ILogger Logger { get; }
 
         private bool _disposed = false;
 
@@ -178,7 +163,6 @@ namespace Shark
         }
         #endregion
 
-        public abstract bool CanWrite { get; }
         public abstract Task<bool> Avaliable();
         public abstract Task<int> ReadAsync(byte[] buffer, int offset, int count);
         public abstract Task WriteAsync(byte[] buffer, int offset, int count);

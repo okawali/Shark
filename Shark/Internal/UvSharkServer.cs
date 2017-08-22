@@ -1,4 +1,5 @@
-﻿using NetUV.Core.Handles;
+﻿using Microsoft.Extensions.Logging;
+using NetUV.Core.Handles;
 using System;
 using System.Net;
 
@@ -6,8 +7,11 @@ namespace Shark.Internal
 {
     sealed internal class UvSharkServer : SharkServer
     {
+        public override ILogger Logger => _logger;
+
         private Loop _loop;
         private Tcp _tcp;
+        private ILogger _logger;
 
         internal UvSharkServer()
             : base()
@@ -15,6 +19,7 @@ namespace Shark.Internal
             _loop = new Loop();
             _tcp = _loop.CreateTcp()
                     .SimultaneousAccepts(true);
+            _logger = LoggerFactory.CreateLogger<UvSharkServer>();
         }
 
         public override ISharkServer Bind(IPEndPoint endPoint)

@@ -1,14 +1,18 @@
 ﻿using NetUV.Core.Handles;
 using System.Threading.Tasks;
 using System.Net;
+using Microsoft.Extensions.Logging;
 
 namespace Shark.Internal
 {
     sealed internal class UvSharkClient : SharkClient
     {
-        private ISocketClient _socketClient;
 
         public override bool CanWrite => _socketClient.CanWrite;
+        public override ILogger Logger => _logger;
+
+        private ISocketClient _socketClient;
+        private ILogger _logger;
 
         public override Task<bool> Avaliable()
         {
@@ -19,6 +23,7 @@ namespace Shark.Internal
             : base(server)
         {
             _socketClient = new UvSocketClient(tcp, Id);
+            _logger = LoggerFactory.CreateLogger<UvSharkClient>();
         }
 
         public override Task CloseAsync() => _socketClient.CloseAsync();
