@@ -11,25 +11,11 @@ namespace Shark.Internal
 {
     sealed internal class UvSocketClient : ISocketClient
     {
-        public Guid Id
-        {
-            get;
-            private set;
-        }
-
-        public bool Disposed
-        {
-            get;
-            private set;
-        }
-
-        public bool CanWrite
-        {
-            get;
-            private set;
-        }
-
         private const int DEFAULT_BUFFER_SIZE = 1024;
+
+        public Guid Id { get; private set; }
+        public bool Disposed { get; private set; }
+        public bool CanWrite { get; private set; }
 
         private Tcp _tcp;
         private Loop _loop;
