@@ -14,20 +14,8 @@ namespace Shark
         public IDictionary<Guid, ISocketClient> Clients => _clients;
         public virtual ILoggerFactory LoggerFactory => _loggerFactory;
         public abstract ILogger Logger { get; }
+        public event Action<ISharkClient> OnConnected;
 
-        public event Action<ISharkClient> OnConnected
-        {
-            add
-            {
-                _onConnected += value;
-            }
-            remove
-            {
-                _onConnected -= value;
-            }
-        }
-
-        protected Action<ISharkClient> _onConnected;
         protected Dictionary<Guid, ISocketClient> _clients = new Dictionary<Guid, ISocketClient>();
         private bool _disposed = false;
         private ILoggerFactory _loggerFactory;
@@ -39,7 +27,7 @@ namespace Shark
 
         public ISharkServer OnClientConnected(Action<ISharkClient> onConnected)
         {
-            _onConnected += onConnected;
+            OnConnected += onConnected;
             return this;
         }
 
@@ -63,6 +51,12 @@ namespace Shark
         public void RemoveClient(Guid id)
         {
             _clients.Remove(id);
+        }
+
+        protected void OnClientConnect(ISharkClient client)
+        {
+            _clients.Add(client.Id, client);
+            OnConnected?.Invoke(client);
         }
 
         #region IDisposable Support

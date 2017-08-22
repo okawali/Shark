@@ -42,8 +42,7 @@ namespace Shark.Internal
             }
 
             var sharkClient = new UvSharkClient(client, this);
-            _clients.Add(sharkClient.Id, sharkClient);
-            _onConnected?.Invoke(sharkClient);
+            OnClientConnect(sharkClient);
         }
 
         protected override void Dispose(bool disposing)
