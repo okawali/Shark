@@ -34,7 +34,6 @@ namespace Shark
 
         protected SharkServer()
         {
-            //_onConnected = OnClientConnected;
             _loggerFactory = new LoggerFactory();
         }
 
@@ -64,16 +63,6 @@ namespace Shark
         public void RemoveClient(Guid id)
         {
             _clients.Remove(id);
-        }
-
-        protected virtual async void OnClientConnected(SharkClient client)
-        {
-            var block = new BlockData() { Id = client.Id, Type = BlockType.HAND_SHAKE };
-            await client.WriteBlock(block);
-            block = await client.ReadBlock();
-            client.GenerateCryptoHelper(block.Data);
-            block = new BlockData { Id = client.Id, Type = BlockType.HAND_SHAKE_FINAL };
-            await client.WriteBlock(block);
         }
 
         #region IDisposable Support

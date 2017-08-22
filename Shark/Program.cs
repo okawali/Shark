@@ -5,6 +5,8 @@ using System.Net;
 using System.Threading.Tasks;
 using System.Text;
 using Microsoft.Extensions.Logging;
+using Shark.Data;
+using Shark.Constants;
 
 namespace Shark
 {
@@ -50,6 +52,16 @@ namespace Shark
                         await client.CloseAsync();
                         client.Dispose();
                     })
+                    //.OnClientConnected(async client =>
+                    //{
+
+                    //    var block = new BlockData() { Id = client.Id, Type = BlockType.HAND_SHAKE };
+                    //    await client.WriteBlock(block);
+                    //    block = await client.ReadBlock();
+                    //    client.GenerateCryptoHelper(block.Data);
+                    //    block = new BlockData { Id = client.Id, Type = BlockType.HAND_SHAKE_FINAL };
+                    //    await client.WriteBlock(block);
+                    //})
                     .Bind("127.0.0.1", 12306)
                     .Start();
             }

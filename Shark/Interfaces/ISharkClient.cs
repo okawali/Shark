@@ -21,6 +21,7 @@ namespace Shark
         Task<ISocketClient> ConnectTo(IPAddress address, int port);
         Task<ISocketClient> ConnectTo(string address, int port);
         Task<ISocketClient> ConnectTo(IPEndPoint endPoint);
+        ICryptoHelper GenerateCryptoHelper(byte[] passowrd);
         void EncryptBlock(ref BlockData block);
         void DeccryptBlock(ref BlockData block);
     }

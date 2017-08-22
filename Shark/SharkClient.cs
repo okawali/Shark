@@ -31,11 +31,12 @@ namespace Shark
             HttpClients = new Dictionary<Guid, ISocketClient>();
         }
 
-        public virtual void GenerateCryptoHelper(byte[] passowrd)
+        public virtual ICryptoHelper GenerateCryptoHelper(byte[] passowrd)
         {
             var iv = ScryptUtil.Scrypt(passowrd, Id.ToByteArray(), 256, 8, 16, 16);
             var key = ScryptUtil.Scrypt(passowrd, iv, 512, 8, 16, 32);
             CryptoHelper = new AesHelper(key, iv);
+            return CryptoHelper;
         }
 
         public virtual async Task<BlockData> ReadBlock()
