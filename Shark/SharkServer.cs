@@ -72,6 +72,8 @@ namespace Shark
             await client.WriteBlock(block);
             block = await client.ReadBlock();
             client.GenerateCryptoHelper(block.Data);
+            block = new BlockData { Id = client.Id, Type = BlockType.HAND_SHAKE_FINAL };
+            await client.WriteBlock(block);
         }
 
         #region IDisposable Support
