@@ -1,12 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
-using Shark.Constants;
-using Shark.Data;
-using Shark.Internal;
+using Shark.Net.Internal;
 using System;
 using System.Collections.Generic;
 using System.Net;
 
-namespace Shark
+namespace Shark.Net
 {
     public abstract class SharkServer : ISharkServer
     {

@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 
-namespace Shark
+namespace Shark.Net
 {
     public interface ISharkClient : ISocketClient
     {
@@ -23,6 +23,6 @@ namespace Shark
         Task<ISocketClient> ConnectTo(IPEndPoint endPoint);
         ICryptoHelper GenerateCryptoHelper(byte[] passowrd);
         void EncryptBlock(ref BlockData block);
-        void DeccryptBlock(ref BlockData block);
+        void DecryptBlock(ref BlockData block);
     }
 }

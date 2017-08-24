@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 
-namespace Shark
+namespace Shark.Net
 {
     public interface ISharkServer : IDisposable
     {

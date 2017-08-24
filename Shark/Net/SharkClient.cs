@@ -1,14 +1,14 @@
-﻿using Norgerman.Cryptography.Scrypt;
+﻿using Microsoft.Extensions.Logging;
+using Norgerman.Cryptography.Scrypt;
 using Shark.Constants;
 using Shark.Crypto;
 using Shark.Data;
 using System;
-using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Net;
-using Microsoft.Extensions.Logging;
+using System.Threading.Tasks;
 
-namespace Shark
+namespace Shark.Net
 {
     public abstract class SharkClient : ISharkClient
     {
@@ -70,7 +70,7 @@ namespace Shark
             }
         }
 
-        public void DeccryptBlock(ref BlockData block)
+        public void DecryptBlock(ref BlockData block)
         {
             if (block.Data != null && block.IsValid)
             {

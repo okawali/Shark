@@ -3,7 +3,7 @@ using NetUV.Core.Handles;
 using System;
 using System.Net;
 
-namespace Shark.Internal
+namespace Shark.Net.Internal
 {
     sealed internal class UvSharkServer : SharkServer
     {

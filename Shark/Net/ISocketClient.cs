@@ -1,14 +1,15 @@
 ﻿using System;
 using System.Threading.Tasks;
 
-namespace Shark
+namespace Shark.Net
 {
     public interface ISocketClient : IDisposable
     {
         bool Disposed { get; }
         bool CanWrite { get; }
-        Task<bool> Avaliable { get; }
         Guid Id { get; }
+        Task<bool> Avaliable { get; }
+
         Task<int> ReadAsync(byte[] buffer, int offset, int count);
         Task WriteAsync(byte[] buffer, int offset, int count);
         Task CloseAsync();

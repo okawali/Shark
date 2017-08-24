@@ -1,9 +1,9 @@
-﻿using NetUV.Core.Handles;
-using System.Threading.Tasks;
+﻿using Microsoft.Extensions.Logging;
+using NetUV.Core.Handles;
 using System.Net;
-using Microsoft.Extensions.Logging;
+using System.Threading.Tasks;
 
-namespace Shark.Internal
+namespace Shark.Net.Internal
 {
     sealed internal class UvSharkClient : SharkClient
     {

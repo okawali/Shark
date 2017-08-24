@@ -7,7 +7,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Shark.Internal
+namespace Shark.Net.Internal
 {
     sealed internal class UvSocketClient : ISocketClient
     {
