@@ -21,6 +21,7 @@ namespace Shark.Net
 
         public abstract bool CanWrite { get; }
         public abstract ILogger Logger { get; }
+        public abstract Task<bool> Avaliable { get; }
 
         private bool _disposed = false;
 
@@ -164,7 +165,6 @@ namespace Shark.Net
         }
         #endregion
 
-        public abstract Task<bool> Avaliable { get; }
         public abstract Task<int> ReadAsync(byte[] buffer, int offset, int count);
         public abstract Task WriteAsync(byte[] buffer, int offset, int count);
         public abstract Task CloseAsync();
