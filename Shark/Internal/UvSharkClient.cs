@@ -13,10 +13,7 @@ namespace Shark.Internal
         private ISocketClient _socketClient;
         private ILogger _logger;
 
-        public override Task<bool> Avaliable()
-        {
-            return _socketClient.Avaliable();
-        }
+        public override Task<bool> Avaliable => _socketClient.Avaliable;
 
         internal UvSharkClient(Tcp tcp, UvSharkServer server)
             : base(server)

@@ -7,8 +7,8 @@ namespace Shark
     {
         bool Disposed { get; }
         bool CanWrite { get; }
+        Task<bool> Avaliable { get; }
         Guid Id { get; }
-        Task<bool> Avaliable();
         Task<int> ReadAsync(byte[] buffer, int offset, int count);
         Task WriteAsync(byte[] buffer, int offset, int count);
         Task CloseAsync();

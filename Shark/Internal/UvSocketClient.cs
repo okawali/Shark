@@ -16,6 +16,7 @@ namespace Shark.Internal
         public Guid Id { get; private set; }
         public bool Disposed { get; private set; }
         public bool CanWrite { get; private set; }
+        public Task<bool> Avaliable => GenerateAvaliableTask();
 
         private Tcp _tcp;
         private Loop _loop;
@@ -24,11 +25,6 @@ namespace Shark.Internal
         private Queue<MemoryStream> _bufferQuene = new Queue<MemoryStream>();
         private TaskCompletionSource<bool> _avaliableTaskCompletion = new TaskCompletionSource<bool>();
         private TaskCompletionSource<bool> _completeTaskCompletion = new TaskCompletionSource<bool>();
-
-        public async Task<bool> Avaliable()
-        {
-            return await await Task.WhenAny(_avaliableTaskCompletion.Task, _completeTaskCompletion.Task);
-        }
 
         internal UvSocketClient(Tcp tcp, Guid? id = null, Loop loop = null, int readTimeout = Timeout.Infinite)
         {
@@ -194,6 +190,11 @@ namespace Shark.Internal
         private void OnReadTimeout(object state)
         {
             _completeTaskCompletion.TrySetResult(false);
+        }
+
+        private async Task<bool> GenerateAvaliableTask()
+        {
+            return await await Task.WhenAny(_avaliableTaskCompletion.Task, _completeTaskCompletion.Task);
         }
 
         public static Task<ISocketClient> ConnectTo(IPEndPoint endPoint)

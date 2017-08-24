@@ -27,7 +27,7 @@ namespace Shark
 
                         await Task.Delay(1000);
                         var buffer = new byte[1024];
-                        while (await client.Avaliable())
+                        while (await client.Avaliable)
                         {
                             using (var mem = new MemoryStream())
                             {
@@ -74,7 +74,7 @@ namespace Shark
                 var buffer = new byte[1024];
                 using (var stream = new MemoryStream())
                 {
-                    while (client.Avaliable().Result)
+                    while (client.Avaliable.Result)
                     {
                         var readed = client.ReadAsync(buffer, 0, 1024).Result;
                         stream.Write(buffer, 0, readed);

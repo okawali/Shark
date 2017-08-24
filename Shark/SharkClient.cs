@@ -85,7 +85,7 @@ namespace Shark
             var header = new byte[BlockData.HEADER_SIZE];
             var needRead = BlockData.HEADER_SIZE;
             var readed = 0;
-            while (await Avaliable())
+            while (await Avaliable)
             {
                 readed += await ReadAsync(header, readed, needRead - readed);
 
@@ -113,7 +113,7 @@ namespace Shark
             var data = new byte[length];
             var readed = 0;
 
-            while (await Avaliable())
+            while (await Avaliable)
             {
                 readed += await ReadAsync(data, readed, length - readed);
 
@@ -164,7 +164,7 @@ namespace Shark
         }
         #endregion
 
-        public abstract Task<bool> Avaliable();
+        public abstract Task<bool> Avaliable { get; }
         public abstract Task<int> ReadAsync(byte[] buffer, int offset, int count);
         public abstract Task WriteAsync(byte[] buffer, int offset, int count);
         public abstract Task CloseAsync();
