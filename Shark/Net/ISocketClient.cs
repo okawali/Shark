@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Extensions.Logging;
+using System;
 using System.Threading.Tasks;
 
 namespace Shark.Net
@@ -9,6 +10,7 @@ namespace Shark.Net
         bool CanWrite { get; }
         Guid Id { get; }
         Task<bool> Avaliable { get; }
+        ILogger Logger { get; }
 
         Task<int> ReadAsync(byte[] buffer, int offset, int count);
         Task WriteAsync(byte[] buffer, int offset, int count);

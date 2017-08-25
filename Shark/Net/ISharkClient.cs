@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-using Shark.Crypto;
+﻿using Shark.Crypto;
 using Shark.Data;
 using System;
 using System.Collections.Generic;
@@ -13,14 +12,12 @@ namespace Shark.Net
         ICryptoHelper CryptoHelper { get; }
         ISharkServer Server { get; }
         IDictionary<Guid, ISocketClient> HttpClients {get;}
-        ILogger Logger { get; }
-        ILoggerFactory LoggerFactory { get; }
 
         Task<BlockData> ReadBlock();
         Task WriteBlock(BlockData block);
-        Task<ISocketClient> ConnectTo(IPAddress address, int port);
-        Task<ISocketClient> ConnectTo(string address, int port);
-        Task<ISocketClient> ConnectTo(IPEndPoint endPoint);
+        Task<ISocketClient> ConnectTo(IPAddress address, int port, Guid? id = null);
+        Task<ISocketClient> ConnectTo(string address, int port, Guid? id = null);
+        Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null);
         ICryptoHelper GenerateCryptoHelper(byte[] passowrd);
         void EncryptBlock(ref BlockData block);
         void DecryptBlock(ref BlockData block);

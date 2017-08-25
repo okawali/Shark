@@ -10,7 +10,6 @@ namespace Shark.Net
         bool Disposed { get; }
         IDictionary<Guid, ISocketClient> Clients { get; }
         event Action<ISharkClient> OnConnected;
-        ILoggerFactory LoggerFactory { get; }
         ILogger Logger { get; }
 
         ISharkServer ConfigureLogger(Action<ILoggerFactory> configure);

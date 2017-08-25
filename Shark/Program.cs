@@ -1,5 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 using NetUV.Core.Logging;
+using Shark.Constants;
+using Shark.Data;
+using Shark.Logging;
 using Shark.Net;
 using Shark.Net.Internal;
 using System;
@@ -54,13 +57,14 @@ namespace Shark
                     })
                     //.OnClientConnected(async client =>
                     //{
-
                     //    var block = new BlockData() { Id = client.Id, Type = BlockType.HAND_SHAKE };
                     //    await client.WriteBlock(block);
                     //    block = await client.ReadBlock();
                     //    client.GenerateCryptoHelper(block.Data);
                     //    block = new BlockData { Id = client.Id, Type = BlockType.HAND_SHAKE_FINAL };
                     //    await client.WriteBlock(block);
+                    //    await LoopManager.CreateSharkLoop(client);
+                    //    client.Dispose();
                     //})
                     .Bind("127.0.0.1", 12306)
                     .Start();
@@ -68,6 +72,7 @@ namespace Shark
             else
             {
                 //client 
+                LoggerManager.LoggerFactory.AddConsole();
                 var client = UvSocketClient.ConnectTo(new IPEndPoint(IPAddress.Parse("115.239.211.112"), 80)).Result;
                 var data = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: www.baidu.com\r\nConnection: keep-alive\r\n\r\n");
                 client.WriteAsync(data, 0, data.Length).Wait();

@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Shark.Logging;
 using Shark.Net.Internal;
 using System;
 using System.Collections.Generic;
@@ -10,17 +11,14 @@ namespace Shark.Net
     {
         public bool Disposed => _disposed;
         public IDictionary<Guid, ISocketClient> Clients => _clients;
-        public virtual ILoggerFactory LoggerFactory => _loggerFactory;
         public abstract ILogger Logger { get; }
         public event Action<ISharkClient> OnConnected;
 
         protected Dictionary<Guid, ISocketClient> _clients = new Dictionary<Guid, ISocketClient>();
         private bool _disposed = false;
-        private ILoggerFactory _loggerFactory;
 
         protected SharkServer()
         {
-            _loggerFactory = new LoggerFactory();
         }
 
         public ISharkServer OnClientConnected(Action<ISharkClient> onConnected)
@@ -31,7 +29,7 @@ namespace Shark.Net
 
         public ISharkServer ConfigureLogger(Action<ILoggerFactory> configure)
         {
-            configure?.Invoke(LoggerFactory);
+            configure?.Invoke(LoggerManager.LoggerFactory);
             return this;
         }
 

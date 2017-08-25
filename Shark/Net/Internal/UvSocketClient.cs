@@ -1,5 +1,7 @@
-﻿using NetUV.Core.Buffers;
+﻿using Microsoft.Extensions.Logging;
+using NetUV.Core.Buffers;
 using NetUV.Core.Handles;
+using Shark.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -18,6 +20,19 @@ namespace Shark.Net.Internal
         public bool CanWrite { get; private set; }
         public Task<bool> Avaliable => GenerateAvaliableTask();
 
+        public ILogger Logger
+        {
+            get
+            {
+                if (_logger == null)
+                {
+                    _logger = LoggerManager.LoggerFactory.CreateLogger<UvSocketClient>();
+                }
+                return _logger;
+            }
+        }
+
+        private ILogger _logger;
         private Tcp _tcp;
         private Loop _loop;
         private int _readTimeout;
@@ -158,6 +173,8 @@ namespace Shark.Net.Internal
                 }
             });
 
+            _readTimer?.Change(_readTimeout, Timeout.Infinite);
+
             return taskCompletion.Task;
         }
 
@@ -184,11 +201,13 @@ namespace Shark.Net.Internal
         private void OnCompleted(Tcp tcp)
         {
             CanWrite = false;
+            Logger.LogInformation("Remote closed");
             _completeTaskCompletion.TrySetResult(false);
         }
 
         private void OnReadTimeout(object state)
         {
+            Logger.LogWarning($"Not get any data in {_readTimeout}ms, set unavaliable.");
             _completeTaskCompletion.TrySetResult(false);
         }
 
@@ -197,7 +216,7 @@ namespace Shark.Net.Internal
             return await await Task.WhenAny(_avaliableTaskCompletion.Task, _completeTaskCompletion.Task);
         }
 
-        public static Task<ISocketClient> ConnectTo(IPEndPoint endPoint)
+        public static Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null)
         {
             var completionSource = new TaskCompletionSource<ISocketClient>();
             
@@ -214,7 +233,7 @@ namespace Shark.Net.Internal
                         }
                         else
                         {
-                            completionSource.SetResult(new UvSocketClient(tcp, null, loop, 5000));
+                            completionSource.SetResult(new UvSocketClient(tcp, id, loop, 5000));
                         }
                     });
                 loop.RunDefault();

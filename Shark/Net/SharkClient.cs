@@ -16,7 +16,6 @@ namespace Shark.Net
         public ISharkServer Server { get; private set; }
         public ICryptoHelper CryptoHelper { get; private set; }
         public IDictionary<Guid, ISocketClient> HttpClients { get; private set; }
-        public virtual ILoggerFactory LoggerFactory => Server.LoggerFactory;
         public bool Disposed => _disposed;
 
         public abstract bool CanWrite { get; }
@@ -128,12 +127,12 @@ namespace Shark.Net
         }
 
 
-        public Task<ISocketClient> ConnectTo(IPAddress address, int port)
+        public Task<ISocketClient> ConnectTo(IPAddress address, int port, Guid? id = null)
         {
             return ConnectTo(new IPEndPoint(address, port));
         }
 
-        virtual async public Task<ISocketClient> ConnectTo(string address, int port)
+        virtual async public Task<ISocketClient> ConnectTo(string address, int port, Guid? id = null)
         {
             if (IPAddress.TryParse(address, out var ip))
             {
@@ -168,6 +167,6 @@ namespace Shark.Net
         public abstract Task<int> ReadAsync(byte[] buffer, int offset, int count);
         public abstract Task WriteAsync(byte[] buffer, int offset, int count);
         public abstract Task CloseAsync();
-        public abstract Task<ISocketClient> ConnectTo(IPEndPoint endPoint);
+        public abstract Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null);
     }
 }
