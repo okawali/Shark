@@ -20,7 +20,7 @@ namespace Shark.Data
         {
             using (Crc32 crc32 = new Crc32())
             {
-                var hash = crc32.ComputeHash(Data);
+                var hash = crc32.ComputeHash(Data ?? Array.Empty<byte>());
                 Array.Reverse(hash);
                 return BitConverter.ToUInt32(hash, 0);
             }
