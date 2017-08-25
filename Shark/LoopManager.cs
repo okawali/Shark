@@ -13,72 +13,82 @@ namespace Shark
     {
         private const int BUFFER_SIZE = 1024 * 8;
 
-        public static async Task CreateSharkLoop(ISharkClient client)
+        public static Task CreateSharkLoop(ISharkClient client)
         {
-            try
+            var task = Task.Factory.StartNew(async () =>
             {
-                while (await client.Avaliable)
+                try
                 {
-                    var block = await client.ReadBlock();
-                    if (block.IsValid)
+                    while (await client.Avaliable)
                     {
-                        client.DecryptBlock(ref block);
-                        if (block.Type == BlockType.CONNECT)
+                        var block = await client.ReadBlock();
+                        if (block.IsValid)
                         {
-                            var host = JsonConvert.DeserializeObject<HostData>(Encoding.UTF8.GetString(block.Data));
-                            var http = await client.ConnectTo(host.Address, host.Port, block.Id);
-                            var resp = new BlockData() { Type = BlockType.CONNECTED, Id = block.Id };
-                            client.EncryptBlock(ref resp);
-                            await client.WriteBlock(resp);
-                            CreateHttpLoop(client, http);
-                        }
-                        else if (block.Type == BlockType.DATA)
-                        {
-                            if (client.HttpClients.TryGetValue(block.Id, out var http))
+                            client.DecryptBlock(ref block);
+                            if (block.Type == BlockType.CONNECT)
                             {
-                                if (http.CanWrite)
+                                var host = JsonConvert.DeserializeObject<HostData>(Encoding.UTF8.GetString(block.Data));
+                                var http = await client.ConnectTo(host.Address, host.Port, block.Id);
+                                var resp = new BlockData() { Type = BlockType.CONNECTED, Id = block.Id };
+                                client.EncryptBlock(ref resp);
+                                await client.WriteBlock(resp);
+                                CreateHttpLoop(client, http);
+                            }
+                            else if (block.Type == BlockType.DATA)
+                            {
+                                if (client.HttpClients.TryGetValue(block.Id, out var http))
                                 {
-                                    await http.WriteAsync(block.Data, 0, block.Data.Length);
+                                    if (http.CanWrite)
+                                    {
+                                        await http.WriteAsync(block.Data, 0, block.Data.Length);
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
-            catch (Exception e)
-            {
-                client.Logger.LogError("Client errored:{0}", e);
-            }
+                catch (Exception e)
+                {
+                    client.Logger.LogError("Client errored:{0}", e);
+                }
+            }, TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning)
+            .Unwrap();
+
+            return task;
         }
 
-        private static async void CreateHttpLoop(ISharkClient client, ISocketClient socketClient)
+        private static void CreateHttpLoop(ISharkClient client, ISocketClient socketClient)
         {
-            var buffer = new Byte[BUFFER_SIZE];
-            byte number = 0;
-            try
+            var task = Task.Factory.StartNew(async () =>
             {
-                while (await socketClient.Avaliable)
+                var buffer = new Byte[BUFFER_SIZE];
+                byte number = 0;
+                try
                 {
-                    var readed = await socketClient.ReadAsync(buffer, 0, BUFFER_SIZE);
-                    var block = new BlockData()
+                    while (await socketClient.Avaliable)
                     {
+                        var readed = await socketClient.ReadAsync(buffer, 0, BUFFER_SIZE);
+                        var block = new BlockData()
+                        {
 
-                        Id = socketClient.Id,
-                        Data = new Byte[readed],
-                        BlockNumber = number++,
-                        Type = BlockType.DATA
-                    };
-                    Buffer.BlockCopy(buffer, 0, block.Data, 0, readed);
-                    client.EncryptBlock(ref block);
-                    block.Crc32 = block.ComputeCrc();
-                    await client.WriteBlock(block);
+                            Id = socketClient.Id,
+                            Data = new Byte[readed],
+                            BlockNumber = number++,
+                            Type = BlockType.DATA
+                        };
+                        Buffer.BlockCopy(buffer, 0, block.Data, 0, readed);
+                        client.EncryptBlock(ref block);
+                        block.Crc32 = block.ComputeCrc();
+                        await client.WriteBlock(block);
+                    }
                 }
-            }
-            catch (Exception e)
-            {
-                client.Logger.LogError("Client errored:{0}", e);
-            }
-            socketClient.Dispose();
+                catch (Exception e)
+                {
+                    client.Logger.LogError("Client errored:{0}", e);
+                }
+                socketClient.Dispose();
+            }, TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning)
+            .Unwrap();
         }
     }
 }
