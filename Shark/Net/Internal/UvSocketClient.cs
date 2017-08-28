@@ -219,8 +219,7 @@ namespace Shark.Net.Internal
         public static Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null)
         {
             var completionSource = new TaskCompletionSource<ISocketClient>();
-            
-            Task.Run(() => 
+            Task.Factory.StartNew(() => 
             {
                 var loop = new Loop();
                 loop.CreateTcp()
@@ -237,7 +236,7 @@ namespace Shark.Net.Internal
                         }
                     });
                 loop.RunDefault();
-            });
+            }, TaskCreationOptions.LongRunning);
             return completionSource.Task;
         }
     }

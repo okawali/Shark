@@ -28,11 +28,21 @@ namespace Shark
                             if (block.Type == BlockType.CONNECT)
                             {
                                 var host = JsonConvert.DeserializeObject<HostData>(Encoding.UTF8.GetString(block.Data));
-                                var http = await client.ConnectTo(host.Address, host.Port, block.Id);
-                                var resp = new BlockData() { Type = BlockType.CONNECTED, Id = block.Id };
-                                client.EncryptBlock(ref resp);
-                                await client.WriteBlock(resp);
-                                client.RunHttpLoop(http);
+                                try
+                                {
+                                    var http = await client.ConnectTo(host.Address, host.Port, block.Id);
+                                    BlockData resp = new BlockData() { Type = BlockType.CONNECTED, Id = block.Id };
+                                    client.EncryptBlock(ref resp);
+                                    await client.WriteBlock(resp);
+                                    client.RunHttpLoop(http);
+                                }
+                                catch (Exception e)
+                                {
+                                    client.Logger.LogError("Connect failed, error:{0}", e);
+                                    BlockData resp = new BlockData() { Type = BlockType.CONNECT_FAILED, Id = block.Id };
+                                    client.EncryptBlock(ref resp);
+                                    await client.WriteBlock(resp);
+                                }
                             }
                             else if (block.Type == BlockType.DATA)
                             {
