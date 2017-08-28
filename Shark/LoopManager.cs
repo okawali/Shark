@@ -13,7 +13,7 @@ namespace Shark
     {
         private const int BUFFER_SIZE = 1024 * 8;
 
-        public static Task CreateSharkLoop(ISharkClient client)
+        public static Task RunSharkLoop(this ISharkClient client)
         {
             var task = Task.Factory.StartNew(async () =>
             {
@@ -32,7 +32,7 @@ namespace Shark
                                 var resp = new BlockData() { Type = BlockType.CONNECTED, Id = block.Id };
                                 client.EncryptBlock(ref resp);
                                 await client.WriteBlock(resp);
-                                CreateHttpLoop(client, http);
+                                client.RunHttpLoop(http);
                             }
                             else if (block.Type == BlockType.DATA)
                             {
@@ -57,7 +57,7 @@ namespace Shark
             return task;
         }
 
-        private static void CreateHttpLoop(ISharkClient client, ISocketClient socketClient)
+        private static void RunHttpLoop(this ISharkClient client, ISocketClient socketClient)
         {
             var task = Task.Factory.StartNew(async () =>
             {

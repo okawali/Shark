@@ -63,7 +63,7 @@ namespace Shark
                     //    client.GenerateCryptoHelper(block.Data);
                     //    block = new BlockData { Id = client.Id, Type = BlockType.HAND_SHAKE_FINAL };
                     //    await client.WriteBlock(block);
-                    //    await LoopManager.CreateSharkLoop(client);
+                    //    await client.RunSharkLoop();
                     //    client.Dispose();
                     //})
                     .Bind("127.0.0.1", 12306)
