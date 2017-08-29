@@ -58,13 +58,17 @@ namespace Shark
                     })
                     //.OnClientConnected(async client =>
                     //{
-                    //    var block = new BlockData() { Id = client.Id, Type = BlockType.HAND_SHAKE };
-                    //    await client.WriteBlock(block);
-                    //    block = await client.ReadBlock();
-                    //    client.GenerateCryptoHelper(block.Data);
-                    //    block = new BlockData { Id = client.Id, Type = BlockType.HAND_SHAKE_FINAL };
-                    //    await client.WriteBlock(block);
-                    //    await client.RunSharkLoop();
+                    //    var block = await client.ReadBlock();
+                    //    if (block.Type == BlockType.HAND_SHAKE)
+                    //    {
+                    //        block = new BlockData() { Id = client.Id, Type = BlockType.HAND_SHAKE };
+                    //        await client.WriteBlock(block);
+                    //        block = await client.ReadBlock();
+                    //        client.GenerateCryptoHelper(block.Data);
+                    //        block = new BlockData { Id = client.Id, Type = BlockType.HAND_SHAKE_FINAL };
+                    //        await client.WriteBlock(block);
+                    //        await client.RunSharkLoop();
+                    //    }
                     //    client.Dispose();
                     //    client.Server.RemoveClient(client);
                     //})

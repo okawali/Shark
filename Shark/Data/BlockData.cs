@@ -33,7 +33,7 @@ namespace Shark.Data
                 return;
             }
 
-            if (Data?.Length != Length || Crc32 != ComputeCrc())
+            if ((Data?.Length ?? 0) != Length || Crc32 != ComputeCrc())
             {
                 MarkInvalid();
             }
