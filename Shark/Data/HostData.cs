@@ -3,6 +3,6 @@
     public class HostData
     {
         public string Address { set; get; }
-        public int Port { set; get; }
+        public ushort Port { set; get; }
     }
 }

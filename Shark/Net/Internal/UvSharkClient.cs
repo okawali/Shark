@@ -58,6 +58,8 @@ namespace Shark.Net.Internal
 
         public override Task WriteAsync(byte[] buffer, int offset, int count) => _socketClient.WriteAsync(buffer, offset, count);
 
+        public override Task FlushAsync() => _socketClient.FlushAsync();
+
         public override async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null)
         {
             var http = await UvSocketClient.ConnectTo(endPoint, id);

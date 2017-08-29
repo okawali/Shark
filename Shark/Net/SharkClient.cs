@@ -59,6 +59,7 @@ namespace Shark.Net
             {
                 await WriteAsync(block.Data, 0, block.Data.Length);
             }
+            await FlushAsync();
         }
 
         public void EncryptBlock(ref BlockData block)
@@ -168,5 +169,6 @@ namespace Shark.Net
         public abstract Task WriteAsync(byte[] buffer, int offset, int count);
         public abstract Task CloseAsync();
         public abstract Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null);
+        public abstract Task FlushAsync();
     }
 }

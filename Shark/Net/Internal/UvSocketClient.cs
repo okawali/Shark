@@ -178,6 +178,11 @@ namespace Shark.Net.Internal
             return taskCompletion.Task;
         }
 
+        public Task FlushAsync()
+        {
+            return Task.FromResult(0);
+        }
+
         private void OnAccept(Tcp tcp, ReadableBuffer readableBuffer)
         {
             using (readableBuffer)
