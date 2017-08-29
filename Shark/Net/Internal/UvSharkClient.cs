@@ -44,10 +44,6 @@ namespace Shark.Net.Internal
                 {
                     _socketClient.Dispose();
                     _socketClient = null;
-                    foreach(var http in HttpClients)
-                    {
-                        http.Value.Dispose();
-                    }
                 }
             }
 

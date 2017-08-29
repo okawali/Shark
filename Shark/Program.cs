@@ -65,6 +65,7 @@ namespace Shark
                     //    await client.WriteBlock(block);
                     //    await client.RunSharkLoop();
                     //    client.Dispose();
+                    //    server.Clients.Remove(client.Id);
                     //})
                     .Bind("127.0.0.1", 12306)
                     .Start();

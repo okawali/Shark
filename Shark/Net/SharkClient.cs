@@ -153,7 +153,11 @@ namespace Shark.Net
             {
                 if (disposing)
                 {
-                    Server.RemoveClient(Id);
+                    foreach (var http in HttpClients)
+                    {
+                        http.Value.Dispose();
+                    }
+                    HttpClients.Clear();
                 }
                 _disposed = true;
             }

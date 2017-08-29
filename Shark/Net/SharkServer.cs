@@ -62,6 +62,11 @@ namespace Shark.Net
             {
                 if (disposing)
                 {
+                    foreach (var client in Clients)
+                    {
+                        client.Value.Dispose();
+                    }
+                    Clients.Clear();
                 }
                 _disposed = true;
             }
