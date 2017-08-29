@@ -17,7 +17,8 @@ namespace Shark.Net
         ISharkServer Bind(string address, int port);
         ISharkServer Bind(IPEndPoint endPoint);
         ISharkServer OnClientConnected(Action<ISharkClient> onConnected);
-        void Start();
+        void RemoveClient(ISharkClient client);
         void RemoveClient(Guid id);
+        void Start();
     }
 }

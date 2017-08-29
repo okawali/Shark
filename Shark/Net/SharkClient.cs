@@ -146,6 +146,17 @@ namespace Shark.Net
             }
         }
 
+
+        public void RemoveHttpClient(Guid id)
+        {
+            HttpClients.Remove(id);
+        }
+
+        public void RemoveHttpClient(ISocketClient client)
+        {
+            RemoveHttpClient(client.Id);
+        }
+
         #region IDisposable Support
         protected virtual void Dispose(bool disposing)
         {

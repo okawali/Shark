@@ -49,6 +49,12 @@ namespace Shark.Net
             _clients.Remove(id);
         }
 
+
+        public void RemoveClient(ISharkClient client)
+        {
+            RemoveClient(client.Id);
+        }
+
         protected void OnClientConnect(ISharkClient client)
         {
             _clients.Add(client.Id, client);

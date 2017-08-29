@@ -21,5 +21,7 @@ namespace Shark.Net
         ICryptoHelper GenerateCryptoHelper(byte[] passowrd);
         void EncryptBlock(ref BlockData block);
         void DecryptBlock(ref BlockData block);
+        void RemoveHttpClient(Guid id);
+        void RemoveHttpClient(ISocketClient client);
     }
 }

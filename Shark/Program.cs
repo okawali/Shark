@@ -54,6 +54,7 @@ namespace Shark
                         Console.WriteLine("closed");
                         await client.CloseAsync();
                         client.Dispose();
+                        client.Server.RemoveClient(client);
                     })
                     //.OnClientConnected(async client =>
                     //{
@@ -65,7 +66,7 @@ namespace Shark
                     //    await client.WriteBlock(block);
                     //    await client.RunSharkLoop();
                     //    client.Dispose();
-                    //    server.Clients.Remove(client.Id);
+                    //    client.Server.RemoveClient(client);
                     //})
                     .Bind("127.0.0.1", 12306)
                     .Start();

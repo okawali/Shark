@@ -97,7 +97,7 @@ namespace Shark
                     client.Logger.LogError("Client errored:{0}", e);
                 }
                 socketClient.Dispose();
-                client.HttpClients.Remove(socketClient.Id);
+                client.RemoveHttpClient(socketClient);
             }, TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning)
             .Unwrap();
         }
