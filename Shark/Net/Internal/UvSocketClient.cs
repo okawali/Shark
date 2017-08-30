@@ -3,6 +3,7 @@ using NetUV.Core.Buffers;
 using NetUV.Core.Handles;
 using Shark.Logging;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
@@ -40,6 +41,7 @@ namespace Shark.Net.Internal
         private Queue<MemoryStream> _bufferQuene = new Queue<MemoryStream>();
         private TaskCompletionSource<bool> _avaliableTaskCompletion = new TaskCompletionSource<bool>();
         private TaskCompletionSource<bool> _completeTaskCompletion = new TaskCompletionSource<bool>();
+        private ConcurrentQueue<TaskCompletionSource<int>> _unCompletedWriteTasks = new ConcurrentQueue<TaskCompletionSource<int>>();
 
         internal UvSocketClient(Tcp tcp, Guid? id = null, Loop loop = null, int readTimeout = Timeout.Infinite)
         {
@@ -154,18 +156,21 @@ namespace Shark.Net.Internal
             var copyedBuffer = new byte[count];
             Buffer.BlockCopy(buffer, offset, copyedBuffer, 0, count);
             var writableBuffer = WritableBuffer.From(copyedBuffer);
+            _unCompletedWriteTasks.Enqueue(taskCompletion);
 
             _tcp.QueueWriteStream(writableBuffer, (handle, excetion) =>
             {
                 try
                 {
-                    if (excetion != null)
+                    if (_unCompletedWriteTasks.TryDequeue(out var item))
                     {
-                        taskCompletion.SetException(excetion);
-                        return;
+                        if (excetion != null)
+                        {
+                            item.SetException(excetion);
+                            return;
+                        }
+                        item.SetResult(0);
                     }
-
-                    taskCompletion.SetResult(0);
                 }
                 finally
                 {
@@ -174,7 +179,6 @@ namespace Shark.Net.Internal
             });
 
             _readTimer?.Change(_readTimeout, Timeout.Infinite);
-
             return taskCompletion.Task;
         }
 
@@ -208,6 +212,11 @@ namespace Shark.Net.Internal
             CanWrite = false;
             Logger.LogInformation("Remote closed");
             _completeTaskCompletion.TrySetResult(false);
+
+            while (_unCompletedWriteTasks.TryDequeue(out var item))
+            {
+                item.TrySetException(new IOException($"{nameof(UvSharkClient)} is not writable, remote closed"));
+            }
         }
 
         private void OnReadTimeout(object state)
