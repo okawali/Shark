@@ -179,7 +179,6 @@ namespace Shark.Net
 
         public abstract Task<int> ReadAsync(byte[] buffer, int offset, int count);
         public abstract Task WriteAsync(byte[] buffer, int offset, int count);
-        public abstract Task CloseAsync();
         public abstract Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null);
         public abstract Task FlushAsync();
     }

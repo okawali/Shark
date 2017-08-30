@@ -33,8 +33,6 @@ namespace Shark.Net.Internal
             _socketClient = new UvSocketClient(tcp, Id);
         }
 
-        public override Task CloseAsync() => _socketClient.CloseAsync();
-
         protected override void Dispose(bool disposing)
         {
             if (!Disposed)

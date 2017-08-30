@@ -152,43 +152,21 @@ namespace Shark.Net.Internal
             return Task.FromResult(0);
         }
 
-        public Task CloseAsync()
-        {
-            if (Disposed)
-            {
-                throw new ObjectDisposedException(nameof(UvSharkClient));
-            }
-
-            _canRead = false;
-            CanWrite = false;
-            _completeTaskCompletion.TrySetResult(false);
-
-            if (_loop != null)
-            {
-                _loop.Stop();
-                _tcp.CloseHandle();
-                return Task.FromResult(0);
-            }
-
-            TaskCompletionSource<int> taskCompletion = new TaskCompletionSource<int>();
-
-            _tcp.CloseHandle(handle =>
-            {
-                handle.Dispose();
-                taskCompletion.SetResult(0);
-            });
-
-            return taskCompletion.Task;
-        }
-
         public void Dispose()
         {
             if (!Disposed)
             {
-                _tcp.CloseHandle(handle => handle.Dispose());
+                _canRead = false;
+                CanWrite = false;
+                _completeTaskCompletion.TrySetResult(false);
+
+                _loop?.Stop();
+                _tcp.CloseHandle(handle =>
+                {
+                    handle.Dispose();
+                });
                 _loop?.Dispose();
                 _tcp.RemoveReference();
-                _completeTaskCompletion.TrySetResult(false);
 
                 while (_bufferQuene.TryDequeue(out var item))
                 {
@@ -196,8 +174,6 @@ namespace Shark.Net.Internal
                 }
 
                 _tcp = null;
-                _canRead = false;
-                CanWrite = false;
                 Disposed = true;
             }
         }

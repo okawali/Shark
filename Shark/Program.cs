@@ -57,7 +57,6 @@ namespace Shark
                             }
                         }
                         Console.WriteLine("closed");
-                        await client.CloseAsync();
                         client.Dispose();
                         client.Server.RemoveClient(client);
                     })
@@ -105,7 +104,6 @@ namespace Shark
                         }
                     }
                     Console.WriteLine(Encoding.UTF8.GetString(stream.ToArray()));
-                    client.CloseAsync().Wait();
                     client.Dispose();
                 }
             }

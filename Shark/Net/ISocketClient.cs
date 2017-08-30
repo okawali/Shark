@@ -15,6 +15,5 @@ namespace Shark.Net
         Task<int> ReadAsync(byte[] buffer, int offset, int count);
         Task WriteAsync(byte[] buffer, int offset, int count);
         Task FlushAsync();
-        Task CloseAsync();
     }
 }
