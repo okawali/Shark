@@ -29,9 +29,9 @@ namespace Shark
                     {
                         var buffer = new byte[1024];
                         bool written = true;
+                        var readTask = client.ReadAsync(buffer, 0, 10);
                         while (true)
                         {
-                            var readTask = client.ReadAsync(buffer, 0, 10);
                             var delayTask = Task.Delay(1000);
                             var task = await Task.WhenAny(readTask, delayTask);
 
@@ -44,14 +44,15 @@ namespace Shark
 
                                 Console.Write(Encoding.UTF8.GetString(buffer, 0, readTask.Result));
                                 written = false;
+                                readTask = client.ReadAsync(buffer, 0, 10);
                             }
                             else
                             {
                                 if (!written)
                                 {
                                     await client.WriteAsync(result, 0, result.Length);
+                                    written = true;
                                 }
-                                written = true;
                             }
                         }
                         Console.WriteLine("closed");
