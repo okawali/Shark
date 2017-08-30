@@ -18,7 +18,7 @@ namespace Shark
         static void Main(string[] args)
         {
             LogFactory.AddConsoleProvider(LogLevel.Information);
-            if (true)
+            if (args.Length > 0 && args[0] == "server")
             {
                 //Server
                 ISharkServer server = SharkServer.Create();
