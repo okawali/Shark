@@ -8,8 +8,8 @@ namespace Shark.Net
     {
         bool Disposed { get; }
         bool CanWrite { get; }
+        bool CanRead { get; }
         Guid Id { get; }
-        Task<bool> Avaliable { get; }
         ILogger Logger { get; }
 
         Task<int> ReadAsync(byte[] buffer, int offset, int count);

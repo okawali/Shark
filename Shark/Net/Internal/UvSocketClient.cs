@@ -7,7 +7,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Shark.Net.Internal
@@ -19,7 +18,9 @@ namespace Shark.Net.Internal
         public Guid Id { get; private set; }
         public bool Disposed { get; private set; }
         public bool CanWrite { get; private set; }
-        public Task<bool> Avaliable => GenerateAvaliableTask();
+        public bool CanRead => _canRead || _bufferQuene.Count > 0;
+
+        private bool _canRead;
 
         public ILogger Logger
         {
@@ -36,14 +37,12 @@ namespace Shark.Net.Internal
         private ILogger _logger;
         private Tcp _tcp;
         private Loop _loop;
-        private int _readTimeout;
-        private System.Threading.Timer _readTimer;
         private Queue<MemoryStream> _bufferQuene = new Queue<MemoryStream>();
         private TaskCompletionSource<bool> _avaliableTaskCompletion = new TaskCompletionSource<bool>();
         private TaskCompletionSource<bool> _completeTaskCompletion = new TaskCompletionSource<bool>();
         private ConcurrentQueue<TaskCompletionSource<int>> _unCompletedWriteTasks = new ConcurrentQueue<TaskCompletionSource<int>>();
 
-        internal UvSocketClient(Tcp tcp, Guid? id = null, Loop loop = null, int readTimeout = Timeout.Infinite)
+        internal UvSocketClient(Tcp tcp, Guid? id = null, Loop loop = null)
         {
             _tcp = tcp;
             _tcp.AddReference();
@@ -57,12 +56,8 @@ namespace Shark.Net.Internal
             }
             _tcp.OnRead(OnAccept, OnError, OnCompleted);
             CanWrite = true;
+            _canRead = true;
             _loop = loop;
-            _readTimeout = readTimeout;
-            if (_readTimeout != Timeout.Infinite)
-            {
-                _readTimer = new System.Threading.Timer(OnReadTimeout, null, _readTimeout, Timeout.Infinite);
-            }
         }
 
         public Task CloseAsync()
@@ -71,6 +66,9 @@ namespace Shark.Net.Internal
             {
                 throw new ObjectDisposedException(nameof(UvSharkClient));
             }
+
+            _canRead = false;
+            CanWrite = false;
 
             if (_loop != null)
             {
@@ -96,24 +94,43 @@ namespace Shark.Net.Internal
             {
                 _tcp.CloseHandle(handle => handle.Dispose());
                 _loop?.Dispose();
-                _readTimer?.Dispose();
                 _tcp.RemoveReference();
+
+                while (_bufferQuene.TryDequeue(out var item))
+                {
+                    item.Dispose();
+                }
+
                 _tcp = null;
+                _canRead = false;
+                CanWrite = false;
                 Disposed = true;
             }
         }
 
-        public Task<int> ReadAsync(byte[] buffer, int offset, int count)
+        public async Task<int> ReadAsync(byte[] buffer, int offset, int count)
         {
             if (Disposed)
             {
                 throw new ObjectDisposedException(nameof(UvSharkClient));
             }
 
+            if (count <= 0)
+            {
+                throw new ArgumentException($"{nameof(count)} must > 0");
+            }
+
             var readedCount = 0;
-            var tmpBuffer = new byte[DEFAULT_BUFFER_SIZE];
+
             while (readedCount < count)
             {
+                var task = await Task.WhenAny(_avaliableTaskCompletion.Task, _completeTaskCompletion.Task);
+
+                if (task == _completeTaskCompletion.Task)
+                {
+                    return readedCount;
+                }
+
                 if (_bufferQuene.TryPeek(out var data))
                 {
                     readedCount += data.Read(buffer, offset + readedCount, count - readedCount);
@@ -125,19 +142,16 @@ namespace Shark.Net.Internal
                             data.Dispose();
                         }
                     }
-                }
-                else
-                {
-                    break;
+
+                    if (_bufferQuene.Count == 0)
+                    {
+                        _avaliableTaskCompletion = new TaskCompletionSource<bool>();
+                        return readedCount;
+                    }
                 }
             }
 
-            if (_bufferQuene.Count == 0)
-            {
-                _avaliableTaskCompletion = new TaskCompletionSource<bool>();
-            }
-
-            return Task.FromResult(readedCount);
+            return readedCount;
         }
 
         public Task WriteAsync(byte[] buffer, int offset, int count)
@@ -178,7 +192,6 @@ namespace Shark.Net.Internal
                 }
             });
 
-            _readTimer?.Change(_readTimeout, Timeout.Infinite);
             return taskCompletion.Task;
         }
 
@@ -198,7 +211,6 @@ namespace Shark.Net.Internal
                     _bufferQuene.Enqueue(new MemoryStream(buffer));
                     _avaliableTaskCompletion.TrySetResult(true);
                 }
-                _readTimer?.Change(_readTimeout, Timeout.Infinite);
             }
         }
 
@@ -210,6 +222,7 @@ namespace Shark.Net.Internal
         private void OnCompleted(Tcp tcp)
         {
             CanWrite = false;
+            _canRead = false;
             Logger.LogInformation("Remote closed");
             _completeTaskCompletion.TrySetResult(false);
 
@@ -217,12 +230,6 @@ namespace Shark.Net.Internal
             {
                 item.TrySetException(new IOException($"{nameof(UvSharkClient)} is not writable, remote closed"));
             }
-        }
-
-        private void OnReadTimeout(object state)
-        {
-            Logger.LogWarning($"Not get any data in {_readTimeout}ms, set unavaliable.");
-            _completeTaskCompletion.TrySetResult(false);
         }
 
         private async Task<bool> GenerateAvaliableTask()
@@ -246,7 +253,7 @@ namespace Shark.Net.Internal
                         }
                         else
                         {
-                            completionSource.SetResult(new UvSocketClient(tcp, id, loop, 5000));
+                            completionSource.SetResult(new UvSocketClient(tcp, id, loop));
                         }
                     });
                 loop.RunDefault();

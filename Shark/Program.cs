@@ -18,7 +18,7 @@ namespace Shark
         static void Main(string[] args)
         {
             LogFactory.AddConsoleProvider(LogLevel.Information);
-            if (args.Length > 0 && args[0] == "server")
+            if (true)
             {
                 //Server
                 ISharkServer server = SharkServer.Create();
@@ -27,28 +27,31 @@ namespace Shark
                     .ConfigureLogger(factory => factory.AddConsole())
                     .OnClientConnected(async client =>
                     {
-
-                        await Task.Delay(1000);
                         var buffer = new byte[1024];
-                        while (await client.Avaliable)
+                        bool written = true;
+                        while (true)
                         {
-                            using (var mem = new MemoryStream())
+                            var readTask = client.ReadAsync(buffer, 0, 10);
+                            var delayTask = Task.Delay(1000);
+                            var task = await Task.WhenAny(readTask, delayTask);
+
+                            if (task == readTask)
                             {
-                                int readed = 0;
-                                while ((readed = await client.ReadAsync(buffer, 0, 10)) != 0)
+                                if (readTask.Result == 0)
                                 {
-                                    mem.Write(buffer, 0, readed);
+                                    break;
                                 }
-                                try
+
+                                Console.Write(Encoding.UTF8.GetString(buffer, 0, readTask.Result));
+                                written = false;
+                            }
+                            else
+                            {
+                                if (!written)
                                 {
                                     await client.WriteAsync(result, 0, result.Length);
                                 }
-                                catch (Exception e)
-                                {
-                                    Console.WriteLine(e);
-                                }
-                                Console.WriteLine(mem.Length);
-                                Console.WriteLine(Encoding.UTF8.GetString(mem.ToArray()));
+                                written = true;
                             }
                         }
                         Console.WriteLine("closed");
@@ -85,10 +88,19 @@ namespace Shark
                 var buffer = new byte[1024];
                 using (var stream = new MemoryStream())
                 {
-                    while (client.Avaliable.Result)
+                    while (true)
                     {
-                        var readed = client.ReadAsync(buffer, 0, 1024).Result;
-                        stream.Write(buffer, 0, readed);
+                        var readTask = client.ReadAsync(buffer, 0, 1024);
+                        var delayTask = Task.Delay(1000);
+                        var task = Task.WhenAny(readTask, delayTask).Result;
+                        if (task == readTask && readTask.Result != 0)
+                        {
+                            stream.Write(buffer, 0, readTask.Result);
+                        }
+                        else
+                        {
+                            break;
+                        }
                     }
                     Console.WriteLine(Encoding.UTF8.GetString(stream.ToArray()));
                     client.CloseAsync().Wait();

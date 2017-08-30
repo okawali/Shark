@@ -19,8 +19,8 @@ namespace Shark.Net
         public bool Disposed => _disposed;
 
         public abstract bool CanWrite { get; }
+        public abstract bool CanRead { get; }
         public abstract ILogger Logger { get; }
-        public abstract Task<bool> Avaliable { get; }
 
         private bool _disposed = false;
 
@@ -85,22 +85,18 @@ namespace Shark.Net
         {
             var header = new byte[BlockData.HEADER_SIZE];
             var needRead = BlockData.HEADER_SIZE;
+            var totalRead = 0;
             var readed = 0;
-            while (await Avaliable)
+            while ((readed = await ReadAsync(header, totalRead, needRead - totalRead)) != 0)
             {
-                readed += await ReadAsync(header, readed, needRead - readed);
+                totalRead += readed;
 
-                if (needRead == readed)
+                if (needRead == totalRead)
                 {
                     break;
                 }
             }
-
             var valid = BlockData.TryParseHeader(header, out var block);
-            if (!valid)
-            {
-                block.Type = BlockType.INVALID;
-            }
             return block;
         }
 
@@ -112,13 +108,14 @@ namespace Shark.Net
             }
 
             var data = new byte[length];
+            var totalReaded = 0;
             var readed = 0;
 
-            while (await Avaliable)
+            while ((readed = await ReadAsync(data, totalReaded, length - totalReaded)) != 0)
             {
-                readed += await ReadAsync(data, readed, length - readed);
+                totalReaded += readed;
 
-                if (length == readed)
+                if (length == totalReaded)
                 {
                     break;
                 }

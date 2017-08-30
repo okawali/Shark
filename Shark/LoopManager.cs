@@ -19,7 +19,7 @@ namespace Shark
             {
                 try
                 {
-                    while (await client.Avaliable)
+                    while (client.CanRead)
                     {
                         var block = await client.ReadBlock();
                         if (block.IsValid)
@@ -75,9 +75,9 @@ namespace Shark
                 byte number = 0;
                 try
                 {
-                    while (await socketClient.Avaliable)
+                    var readed = 0;
+                    while ((readed = await socketClient.ReadAsync(buffer, 0, BUFFER_SIZE)) != 0)
                     {
-                        var readed = await socketClient.ReadAsync(buffer, 0, BUFFER_SIZE);
                         var block = new BlockData()
                         {
 
