@@ -51,6 +51,7 @@ namespace Shark
                                 if (!written)
                                 {
                                     await client.WriteAsync(result, 0, result.Length);
+                                    await client.FlushAsync();
                                     written = true;
                                 }
                             }
