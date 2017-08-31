@@ -1,9 +1,10 @@
-﻿using Newtonsoft.Json;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using Shark.Constants;
 using Shark.Data;
 using Shark.Net;
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -37,11 +38,15 @@ namespace Shark
                             }
                             else if (block.Type == BlockType.DISCONNECT)
                             {
-                                if (client.HttpClients.TryGetValue(block.Id, out var item))
+                                var ids = JsonConvert.DeserializeObject<List<Guid>>(Encoding.UTF8.GetString(block.Data));
+                                foreach (var id in ids)
                                 {
-                                    item.Dispose();
-                                    client.HttpClients.Remove(item.Id);
-                                    item.Logger.LogInformation("Remote request disconnect {0}", block.Id);
+                                    if (client.HttpClients.TryGetValue(id, out var item))
+                                    {
+                                        item.Dispose();
+                                        client.HttpClients.Remove(item.Id);
+                                        item.Logger.LogInformation("Remote request disconnect {0}", id);
+                                    }
                                 }
                             }
 #pragma warning restore CS4014
@@ -129,7 +134,7 @@ namespace Shark
                         block.Crc32 = block.ComputeCrc();
                         await client.WriteBlock(block);
                     }
-                    socketClient.Logger.LogInformation("http closed");
+                    socketClient.Logger.LogInformation("http closed {0}", socketClient.Id);
                 }
                 catch (Exception)
                 {
