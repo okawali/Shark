@@ -39,7 +39,7 @@ namespace Shark.Net.Internal
         public override async Task Start()
         {
             _listener.Start();
-            Logger.LogInformation("Server started, listening..");
+            Logger.LogInformation($"Server started, listening on {_listener.LocalEndpoint}");
             while (true)
             {
                 var client = await _listener.AcceptTcpClientAsync();
