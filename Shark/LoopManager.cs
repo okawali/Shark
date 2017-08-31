@@ -34,6 +34,15 @@ namespace Shark
                             {
                                 ProcessData(block, client);
                             }
+                            else if (block.Type == BlockType.DISCONNECT)
+                            {
+                                if (client.HttpClients.TryGetValue(block.Id, out var item))
+                                {
+                                    item.Dispose();
+                                    client.HttpClients.Remove(item.Id);
+                                    item.Logger.LogInformation("Remote request disconnect");
+                                }
+                            }
 #pragma warning restore CS4014
                         }
                     }
