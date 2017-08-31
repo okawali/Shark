@@ -3,9 +3,10 @@ using Norgerman.Cryptography.Scrypt;
 using Shark.Crypto;
 using Shark.Data;
 using System;
-using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Shark.Net
@@ -21,6 +22,7 @@ namespace Shark.Net
         public bool Disposed => _disposed;
 
         private bool _disposed = false;
+        private object _syncRoot;
 
         public SharkClient(SharkServer server)
         {
@@ -28,6 +30,7 @@ namespace Shark.Net
             Server = server;
             HttpClients = new ConcurrentDictionary<Guid, ISocketClient>();
             CanRead = true;
+            _syncRoot = new object();
         }
 
         public virtual ICryptoHelper GenerateCryptoHelper(byte[] passowrd)
@@ -51,14 +54,22 @@ namespace Shark.Net
 
         public virtual async Task WriteBlock(BlockData block)
         {
-            var header = block.GenerateHeader();
-            await WriteAsync(header, 0, header.Length);
-
-            if ((block.Data?.Length ?? 0) != 0)
+            Monitor.Enter(_syncRoot);
+            try
             {
-                await WriteAsync(block.Data, 0, block.Data.Length);
+                var header = block.GenerateHeader();
+                await WriteAsync(header, 0, header.Length);
+
+                if ((block.Data?.Length ?? 0) != 0)
+                {
+                    await WriteAsync(block.Data, 0, block.Data.Length);
+                }
+                await FlushAsync();
             }
-            await FlushAsync();
+            finally
+            {
+                Monitor.Exit(_syncRoot);
+            }
         }
 
         public void EncryptBlock(ref BlockData block)
