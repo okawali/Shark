@@ -14,7 +14,7 @@ namespace Shark
             var address = "127.0.0.1";
             var port = 12306;
             var showHelp = false;
-            var optionsSet = new OptionSet()
+            var optionSet = new OptionSet()
             {
                 { "a|addr=", "bind address default='127.0.0.1'", addr => address = addr },
                 { "p|port=", "bind port default=12306", (int p) => port = p },
@@ -23,10 +23,10 @@ namespace Shark
 
             try
             {
-                optionsSet.Parse(args);
+                optionSet.Parse(args);
                 if (showHelp)
                 {
-                    optionsSet.WriteOptionDescriptions(Console.Out);
+                    optionSet.WriteOptionDescriptions(Console.Out);
                 }
                 else
                 {
@@ -66,7 +66,7 @@ namespace Shark
             catch (OptionException e)
             {
                 Console.WriteLine(e.Message);
-                optionsSet.WriteOptionDescriptions(Console.Out);
+                optionSet.WriteOptionDescriptions(Console.Out);
             }
         }
     }
