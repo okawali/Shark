@@ -46,16 +46,18 @@ namespace Shark
                                     client.GenerateCryptoHelper(block.Data);
                                     block = new BlockData { Id = client.Id, Type = BlockType.HAND_SHAKE_FINAL };
                                     await client.WriteBlock(block);
-#pragma warning disable CS4014
-                                    client.RunSharkLoop();
-#pragma warning restore CS4014
+                                    await client.RunSharkLoop();
                                 }
                             }
                             catch (Exception e)
                             {
+
+                                client.Logger.LogError(e, "Shark clinet errored");
+                            }
+                            finally
+                            {
                                 client.Dispose();
                                 client.Server.RemoveClient(client);
-                                client.Logger.LogError(e, "Shark clinet errored");
                             }
                         })
                         .Bind(address, port)

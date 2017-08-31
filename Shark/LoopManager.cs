@@ -52,11 +52,6 @@ namespace Shark
                 {
                     client.Logger.LogError(e, "Shark errored");
                 }
-                finally
-                {
-                    client.Dispose();
-                    client.Server.RemoveClient(client);
-                }
             }, TaskCreationOptions.LongRunning)
             .Unwrap();
 
