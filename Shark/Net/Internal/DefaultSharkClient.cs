@@ -17,7 +17,7 @@ namespace Shark.Net.Internal
             {
                 if (_logger == null)
                 {
-                    _logger = LoggerManager.LoggerFactory.CreateLogger<DefaultSocketClient>();
+                    _logger = LoggerManager.LoggerFactory.CreateLogger<DefaultSharkClient>();
                 }
                 return _logger;
             }
