@@ -45,7 +45,7 @@ namespace Shark
                                     {
                                         item.Dispose();
                                         client.HttpClients.Remove(item.Id);
-                                        item.Logger.LogInformation("Remote request disconnect {0}", id);
+                                        item.Logger.LogDebug("Remote request disconnect {0}", id);
                                     }
                                 }
                             }
