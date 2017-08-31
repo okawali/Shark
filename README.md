@@ -1,2 +1,2 @@
 # Shark
-An libuv based proxy server
+A proxy server
