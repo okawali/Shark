@@ -11,7 +11,8 @@ namespace Shark.Net
     {
         ICryptoHelper CryptoHelper { get; }
         ISharkServer Server { get; }
-        IDictionary<Guid, ISocketClient> HttpClients {get;}
+        IDictionary<Guid, ISocketClient> HttpClients { get; }
+        bool CanRead { get; }
 
         Task<BlockData> ReadBlock();
         Task WriteBlock(BlockData block);

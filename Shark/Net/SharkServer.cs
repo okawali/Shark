@@ -4,24 +4,25 @@ using Shark.Net.Internal;
 using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Threading.Tasks;
 
 namespace Shark.Net
 {
     public abstract class SharkServer : ISharkServer
     {
         public bool Disposed => _disposed;
-        public IDictionary<Guid, ISocketClient> Clients => _clients;
+        public IDictionary<Guid, ISharkClient> Clients => _clients;
         public abstract ILogger Logger { get; }
-        public event Action<ISharkClient> OnConnected;
+        public event Action<SharkClient> OnConnected;
 
-        protected Dictionary<Guid, ISocketClient> _clients = new Dictionary<Guid, ISocketClient>();
+        protected Dictionary<Guid, ISharkClient> _clients = new Dictionary<Guid, ISharkClient>();
         private bool _disposed = false;
 
         protected SharkServer()
         {
         }
 
-        public ISharkServer OnClientConnected(Action<ISharkClient> onConnected)
+        public ISharkServer OnClientConnected(Action<SharkClient> onConnected)
         {
             OnConnected += onConnected;
             return this;
@@ -50,12 +51,12 @@ namespace Shark.Net
         }
 
 
-        public void RemoveClient(ISharkClient client)
+        public void RemoveClient(SharkClient client)
         {
             RemoveClient(client.Id);
         }
 
-        protected void OnClientConnect(ISharkClient client)
+        protected void OnClientConnect(SharkClient client)
         {
             _clients.Add(client.Id, client);
             OnConnected?.Invoke(client);
@@ -85,11 +86,11 @@ namespace Shark.Net
         #endregion
 
         public abstract ISharkServer Bind(IPEndPoint endPoint);
-        public abstract void Start();
+        public abstract Task Start();
 
         public static ISharkServer Create()
         {
-            return new UvSharkServer();
+            return new DefaultSharkServer();
         }
     }
 }

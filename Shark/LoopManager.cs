@@ -13,7 +13,7 @@ namespace Shark
     {
         private const int BUFFER_SIZE = 1024 * 8;
 
-        public static Task RunSharkLoop(this ISharkClient client)
+        public static Task RunSharkLoop(this SharkClient client)
         {
             var task = Task.Factory.StartNew(async () =>
             {
@@ -25,49 +25,80 @@ namespace Shark
                         if (block.IsValid)
                         {
                             client.DecryptBlock(ref block);
+#pragma warning disable CS4014
                             if (block.Type == BlockType.CONNECT)
                             {
-                                var host = JsonConvert.DeserializeObject<HostData>(Encoding.UTF8.GetString(block.Data));
-                                try
-                                {
-                                    var http = await client.ConnectTo(host.Address, host.Port, block.Id);
-                                    BlockData resp = new BlockData() { Type = BlockType.CONNECTED, Id = block.Id };
-                                    client.EncryptBlock(ref resp);
-                                    await client.WriteBlock(resp);
-                                    client.RunHttpLoop(http);
-                                }
-                                catch (Exception e)
-                                {
-                                    client.Logger.LogError("Connect failed, error:{0}", e);
-                                    BlockData resp = new BlockData() { Type = BlockType.CONNECT_FAILED, Id = block.Id };
-                                    client.EncryptBlock(ref resp);
-                                    await client.WriteBlock(resp);
-                                }
+                                ProcessConnect(block, client);
                             }
                             else if (block.Type == BlockType.DATA)
                             {
-                                if (client.HttpClients.TryGetValue(block.Id, out var http))
-                                {
-                                    if (http.CanWrite)
-                                    {
-                                        await http.WriteAsync(block.Data, 0, block.Data.Length);
-                                    }
-                                }
+                                ProcessData(block, client);
                             }
+#pragma warning restore CS4014
                         }
                     }
                 }
                 catch (Exception e)
                 {
-                    client.Logger.LogError("Client errored:{0}", e);
+                    client.Logger.LogError(e, "Shark errored");
                 }
-            }, TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning)
+                finally
+                {
+                    client.Dispose();
+                    client.Server.RemoveClient(client);
+                }
+            }, TaskCreationOptions.LongRunning)
             .Unwrap();
 
             return task;
         }
 
-        private static void RunHttpLoop(this ISharkClient client, ISocketClient socketClient)
+        private static async Task ProcessConnect(BlockData block, SharkClient client)
+        {
+            ISocketClient http = null;
+            BlockData resp = new BlockData() { Type = BlockType.CONNECTED, Id = block.Id };
+            try
+            {
+                var host = JsonConvert.DeserializeObject<HostData>(Encoding.UTF8.GetString(block.Data));
+                http = await client.ConnectTo(host.Address, host.Port, block.Id);
+            }
+            catch (Exception e)
+            {
+                client.Logger.LogError(e, "Connect failed");
+                resp.Type = BlockType.CONNECT_FAILED;
+                if (http != null)
+                {
+                    http.Dispose();
+                    client.HttpClients.Remove(http.Id);
+                }
+            }
+
+            try
+            {
+                client.EncryptBlock(ref resp);
+                await client.WriteBlock(resp);
+                if (resp.Type == BlockType.CONNECTED)
+                {
+                    client.RunHttpLoop(http);
+                }
+            }
+            catch (Exception e)
+            {
+                client.Logger.LogError(e, "Shark errored");
+                client.Dispose();
+                client.Server.RemoveClient(client);
+            }
+        }
+
+        private static async Task ProcessData(BlockData block, SharkClient client)
+        {
+            if (client.HttpClients.TryGetValue(block.Id, out var http))
+            {
+                await http.WriteAsync(block.Data, 0, block.Data.Length);
+            }
+        }
+
+        private static void RunHttpLoop(this SharkClient client, ISocketClient socketClient)
         {
             var task = Task.Factory.StartNew(async () =>
             {
@@ -82,7 +113,7 @@ namespace Shark
                         {
 
                             Id = socketClient.Id,
-                            Data = new Byte[readed],
+                            Data = new byte[readed],
                             BlockNumber = number++,
                             Type = BlockType.DATA
                         };
@@ -91,6 +122,7 @@ namespace Shark
                         block.Crc32 = block.ComputeCrc();
                         await client.WriteBlock(block);
                     }
+                    socketClient.Logger.LogInformation("http closed");
                 }
                 catch (Exception e)
                 {
@@ -98,7 +130,7 @@ namespace Shark
                 }
                 socketClient.Dispose();
                 client.RemoveHttpClient(socketClient);
-            }, TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning)
+            }, TaskCreationOptions.LongRunning)
             .Unwrap();
         }
     }

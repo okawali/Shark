@@ -7,8 +7,6 @@ namespace Shark.Net
     public interface ISocketClient : IDisposable
     {
         bool Disposed { get; }
-        bool CanWrite { get; }
-        bool CanRead { get; }
         Guid Id { get; }
         ILogger Logger { get; }
 

@@ -1,10 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
 using Norgerman.Cryptography.Scrypt;
-using Shark.Constants;
 using Shark.Crypto;
 using Shark.Data;
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Threading.Tasks;
 
@@ -16,11 +16,9 @@ namespace Shark.Net
         public ISharkServer Server { get; private set; }
         public ICryptoHelper CryptoHelper { get; private set; }
         public IDictionary<Guid, ISocketClient> HttpClients { get; private set; }
-        public bool Disposed => _disposed;
-
-        public abstract bool CanWrite { get; }
-        public abstract bool CanRead { get; }
+        public bool CanRead { get; protected set; }
         public abstract ILogger Logger { get; }
+        public bool Disposed => _disposed;
 
         private bool _disposed = false;
 
@@ -28,7 +26,8 @@ namespace Shark.Net
         {
             Id = Guid.NewGuid();
             Server = server;
-            HttpClients = new Dictionary<Guid, ISocketClient>();
+            HttpClients = new ConcurrentDictionary<Guid, ISocketClient>();
+            CanRead = true;
         }
 
         public virtual ICryptoHelper GenerateCryptoHelper(byte[] passowrd)
@@ -125,12 +124,12 @@ namespace Shark.Net
         }
 
 
-        public Task<ISocketClient> ConnectTo(IPAddress address, int port, Guid? id = null)
+        public virtual Task<ISocketClient> ConnectTo(IPAddress address, int port, Guid? id = null)
         {
-            return ConnectTo(new IPEndPoint(address, port));
+            return ConnectTo(new IPEndPoint(address, port), id);
         }
 
-        virtual async public Task<ISocketClient> ConnectTo(string address, int port, Guid? id = null)
+        public virtual async Task<ISocketClient> ConnectTo(string address, int port, Guid? id = null)
         {
             if (IPAddress.TryParse(address, out var ip))
             {
@@ -139,7 +138,7 @@ namespace Shark.Net
             else
             {
                 var addressList = await Dns.GetHostAddressesAsync(address);
-                return await ConnectTo(addressList[0], port);
+                return await ConnectTo(addressList[0], port, id);
             }
         }
 
