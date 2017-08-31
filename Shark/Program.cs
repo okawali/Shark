@@ -1,9 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
+using Mono.Options;
 using Shark.Constants;
 using Shark.Data;
 using Shark.Net;
 using System;
-using Mono.Options;
 
 namespace Shark
 {
