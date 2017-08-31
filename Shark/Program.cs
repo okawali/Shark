@@ -32,7 +32,7 @@ namespace Shark
                 {
                     ISharkServer server = SharkServer.Create();
                     server
-                        .ConfigureLogger(factory => factory.AddConsole())
+                        .ConfigureLogger(factory => factory.AddConsole(LogLevel.Debug))
                         .OnClientConnected(async client =>
                         {
                             try

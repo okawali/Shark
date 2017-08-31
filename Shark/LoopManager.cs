@@ -32,6 +32,7 @@ namespace Shark
                             }
                             else if (block.Type == BlockType.DATA)
                             {
+                                client.Logger.LogDebug($"{block.Id}:{block.BlockNumber}:{block.Length}");
                                 ProcessData(block, client);
                             }
                             else if (block.Type == BlockType.DISCONNECT)
@@ -40,7 +41,7 @@ namespace Shark
                                 {
                                     item.Dispose();
                                     client.HttpClients.Remove(item.Id);
-                                    item.Logger.LogInformation("Remote request disconnect");
+                                    item.Logger.LogInformation("Remote request disconnect {0}", block.Id);
                                 }
                             }
 #pragma warning restore CS4014
@@ -68,12 +69,14 @@ namespace Shark
             BlockData resp = new BlockData() { Type = BlockType.CONNECTED, Id = block.Id };
             try
             {
+                client.Logger.LogDebug("Process connect {0}", block.Id);
                 var host = JsonConvert.DeserializeObject<HostData>(Encoding.UTF8.GetString(block.Data));
                 http = await client.ConnectTo(host.Address, host.Port, block.Id);
+                client.Logger.LogDebug("Connected {0}", block.Id);
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                client.Logger.LogError(e, "Connect failed");
+                client.Logger.LogError("Connect failed {0}", block.Id);
                 resp.Type = BlockType.CONNECT_FAILED;
                 if (http != null)
                 {
@@ -133,9 +136,9 @@ namespace Shark
                     }
                     socketClient.Logger.LogInformation("http closed");
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
-                    client.Logger.LogError("Client errored:{0}", e);
+                    client.Logger.LogError("Http client errored closed, {0}", socketClient.Id);
                 }
                 socketClient.Dispose();
                 client.RemoveHttpClient(socketClient);
