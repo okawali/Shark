@@ -26,19 +26,13 @@ namespace Shark.Net.Internal
 
         private ILogger _logger;
         private TcpClient _tcp;
+        private NetworkStream _stream;
 
         public void Dispose()
         {
             if (!Disposed)
             {
-                try
-                {
-                    _tcp.GetStream().Dispose();
-                }
-                catch
-                {
-                    //DONOTIONG
-                }
+                _stream.Dispose();
                 _tcp.Dispose();
                 Disposed = true;
             }
@@ -47,6 +41,7 @@ namespace Shark.Net.Internal
         public DefaultSocketClient(TcpClient tcp, Guid? id = null)
         {
             _tcp = tcp;
+            _stream = _tcp.GetStream();
 
             if (id != null)
             {
@@ -60,17 +55,17 @@ namespace Shark.Net.Internal
 
         public Task FlushAsync()
         {
-            return _tcp.GetStream().FlushAsync();
+            return _stream.FlushAsync();
         }
 
         public Task<int> ReadAsync(byte[] buffer, int offset, int count)
         {
-            return _tcp.GetStream().ReadAsync(buffer, offset, count);
+            return _stream.ReadAsync(buffer, offset, count);
         }
 
         public Task WriteAsync(byte[] buffer, int offset, int count)
         {
-            return _tcp.GetStream().WriteAsync(buffer, offset, count);
+            return _stream.WriteAsync(buffer, offset, count);
         }
 
         public static async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null)

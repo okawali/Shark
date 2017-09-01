@@ -25,11 +25,13 @@ namespace Shark.Net.Internal
 
         private ILogger _logger;
         private TcpClient _tcp;
+        private NetworkStream _stream;
 
         internal DefaultSharkClient(TcpClient tcp, SharkServer server)
             : base(server)
         {
             _tcp = tcp;
+            _stream = _tcp.GetStream();
         }
 
         public override async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null)
@@ -41,12 +43,12 @@ namespace Shark.Net.Internal
 
         public override Task FlushAsync()
         {
-            return _tcp.GetStream().FlushAsync();
+            return _stream.FlushAsync();
         }
 
         public override async Task<int> ReadAsync(byte[] buffer, int offset, int count)
         {
-            var readed = await _tcp.GetStream().ReadAsync(buffer, offset, count);
+            var readed = await _stream.ReadAsync(buffer, offset, count);
             if (readed == 0)
             {
                 CanRead = false;
@@ -56,7 +58,7 @@ namespace Shark.Net.Internal
 
         public override Task WriteAsync(byte[] buffer, int offset, int count)
         {
-            return _tcp.GetStream().WriteAsync(buffer, offset, count);
+            return _stream.WriteAsync(buffer, offset, count);
         }
 
         protected override void Dispose(bool disposing)
@@ -65,14 +67,7 @@ namespace Shark.Net.Internal
             {
                 if (disposing)
                 {
-                    try
-                    {
-                        _tcp.GetStream().Dispose();
-                    }
-                    catch
-                    {
-                        //DONOTIONG
-                    }
+                    _stream.Dispose();
                     _tcp.Dispose();
                 }
             }
