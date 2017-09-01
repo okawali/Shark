@@ -58,14 +58,27 @@ namespace Shark.Net.Internal
             return _stream.FlushAsync();
         }
 
-        public Task<int> ReadAsync(byte[] buffer, int offset, int count)
+        public async Task<int> ReadAsync(byte[] buffer, int offset, int count)
         {
-            return _stream.ReadAsync(buffer, offset, count);
+            var readed = await _stream.ReadAsync(buffer, offset, count);
+            if (readed == 0)
+            {
+                CloseConnetion();
+            }
+
+            return readed;
         }
 
         public Task WriteAsync(byte[] buffer, int offset, int count)
         {
             return _stream.WriteAsync(buffer, offset, count);
+        }
+
+        private void CloseConnetion()
+        {
+            _tcp.Client.Disconnect(false);
+            _tcp.Client.Shutdown(SocketShutdown.Receive);
+            Logger.LogInformation("Socket no data to read, closed {0}", Id);
         }
 
         public static async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null)

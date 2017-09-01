@@ -51,6 +51,7 @@ namespace Shark.Net.Internal
             var readed = await _stream.ReadAsync(buffer, offset, count);
             if (readed == 0)
             {
+                CloseConnetion();
                 CanRead = false;
             }
             return readed;
@@ -59,6 +60,13 @@ namespace Shark.Net.Internal
         public override Task WriteAsync(byte[] buffer, int offset, int count)
         {
             return _stream.WriteAsync(buffer, offset, count);
+        }
+
+        private void CloseConnetion()
+        {
+            _tcp.Client.Disconnect(false);
+            _tcp.Client.Shutdown(SocketShutdown.Receive);
+            Logger.LogInformation("Shark no data to read, closed {0}", Id);
         }
 
         protected override void Dispose(bool disposing)
