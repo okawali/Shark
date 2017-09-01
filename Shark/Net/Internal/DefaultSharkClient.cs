@@ -65,7 +65,14 @@ namespace Shark.Net.Internal
             {
                 if (disposing)
                 {
-                    _tcp.GetStream().Dispose();
+                    try
+                    {
+                        _tcp.GetStream().Dispose();
+                    }
+                    catch
+                    {
+                        //DONOTIONG
+                    }
                     _tcp.Dispose();
                 }
             }
