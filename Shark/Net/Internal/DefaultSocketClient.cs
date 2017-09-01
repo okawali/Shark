@@ -33,6 +33,8 @@ namespace Shark.Net.Internal
         {
             if (!Disposed)
             {
+                _tcp.Client.Shutdown(SocketShutdown.Both);
+                _tcp.Client.Disconnect(false);
                 _stream.Dispose();
                 _tcp.Dispose();
                 RemoteDisconnected = null;
@@ -78,8 +80,8 @@ namespace Shark.Net.Internal
 
         private void CloseConnetion()
         {
-            _tcp.Client.Disconnect(false);
             _tcp.Client.Shutdown(SocketShutdown.Receive);
+            _tcp.Client.Disconnect(false);
             Logger.LogInformation("Socket no data to read, closed {0}", Id);
             RemoteDisconnected?.Invoke(this);
         }
