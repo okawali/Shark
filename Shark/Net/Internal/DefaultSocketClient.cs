@@ -31,7 +31,7 @@ namespace Shark.Net.Internal
         {
             if (!Disposed)
             {
-                _tcp.GetStream().Close();
+                _tcp.GetStream().Dispose();
                 _tcp.Dispose();
                 Disposed = true;
             }
