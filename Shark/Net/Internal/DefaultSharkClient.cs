@@ -11,6 +11,7 @@ namespace Shark.Net.Internal
 {
     class DefaultSharkClient : SharkClient
     {
+        public override event Action<ISocketClient> RemoteDisconnected;
         public override ILogger Logger
         {
             get
@@ -67,6 +68,7 @@ namespace Shark.Net.Internal
             _tcp.Client.Disconnect(false);
             _tcp.Client.Shutdown(SocketShutdown.Receive);
             Logger.LogInformation("Shark no data to read, closed {0}", Id);
+            RemoteDisconnected?.Invoke(this);
         }
 
         protected override void Dispose(bool disposing)
@@ -77,6 +79,7 @@ namespace Shark.Net.Internal
                 {
                     _stream.Dispose();
                     _tcp.Dispose();
+                    RemoteDisconnected = null;
                 }
             }
             base.Dispose(disposing);

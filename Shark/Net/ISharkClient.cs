@@ -1,6 +1,7 @@
 ﻿using Shark.Crypto;
 using Shark.Data;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
@@ -12,6 +13,7 @@ namespace Shark.Net
         ICryptoHelper CryptoHelper { get; }
         ISharkServer Server { get; }
         IDictionary<Guid, ISocketClient> HttpClients { get; }
+        ConcurrentQueue<Guid> DisconnectQueue { get; }
         bool CanRead { get; }
 
         Task<BlockData> ReadBlock();

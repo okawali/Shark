@@ -1,11 +1,14 @@
 ﻿using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using Norgerman.Cryptography.Scrypt;
+using Shark.Constants;
 using Shark.Crypto;
 using Shark.Data;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -17,12 +20,15 @@ namespace Shark.Net
         public ISharkServer Server { get; private set; }
         public ICryptoHelper CryptoHelper { get; private set; }
         public IDictionary<Guid, ISocketClient> HttpClients { get; private set; }
+        public ConcurrentQueue<Guid> DisconnectQueue { get; private set; }
         public bool CanRead { get; protected set; }
         public abstract ILogger Logger { get; }
         public bool Disposed => _disposed;
+        public abstract event Action<ISocketClient> RemoteDisconnected;
 
         private bool _disposed = false;
         private object _syncRoot;
+        private Timer _timer;
 
         public SharkClient(SharkServer server)
         {
@@ -31,6 +37,8 @@ namespace Shark.Net
             HttpClients = new ConcurrentDictionary<Guid, ISocketClient>();
             CanRead = true;
             _syncRoot = new object();
+            DisconnectQueue = new ConcurrentQueue<Guid>();
+            _timer = new Timer(OnTimeOut, null, 2000, 2000);
         }
 
         public virtual ICryptoHelper GenerateCryptoHelper(byte[] passowrd)
@@ -134,6 +142,45 @@ namespace Shark.Net
             return data;
         }
 
+        public async Task Disconnect(List<Guid> ids)
+        {
+            var block = new BlockData() { Id = Guid.Empty, Type = BlockType.DISCONNECT };
+            var data = JsonConvert.SerializeObject(ids);
+            block.Data = Encoding.UTF8.GetBytes(data);
+            EncryptBlock(ref block);
+            block.Crc32 = block.ComputeCrc();
+            Logger.LogDebug("Disconnet {0}", data);
+            await WriteBlock(block);
+        }
+
+        private async void OnTimeOut(object state)
+        {
+            List<Guid> ids = new List<Guid>();
+            for (int i = 0; i < 256; i++)
+            {
+                if (DisconnectQueue.TryDequeue(out var id))
+                {
+                    ids.Add(id);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            if (ids.Count > 0)
+            {
+                try
+                {
+                    await Disconnect(ids);
+                }
+                catch
+                {
+                    _timer.Change(Timeout.Infinite, Timeout.Infinite);
+                }
+            }
+        }
+
 
         public virtual Task<ISocketClient> ConnectTo(IPAddress address, int port, Guid? id = null)
         {
@@ -176,6 +223,7 @@ namespace Shark.Net
                         http.Value.Dispose();
                     }
                     HttpClients.Clear();
+                    _timer.Dispose();
                 }
                 _disposed = true;
             }

@@ -140,6 +140,7 @@ namespace Shark
                 {
                     client.Logger.LogError("Http client errored closed, {0}", socketClient.Id);
                 }
+                client.DisconnectQueue.Enqueue(socketClient.Id);
                 socketClient.Dispose();
                 client.RemoveHttpClient(socketClient);
             }, TaskCreationOptions.LongRunning)

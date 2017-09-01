@@ -9,6 +9,7 @@ namespace Shark.Net.Internal
 {
     class DefaultSocketClient : ISocketClient
     {
+        public event Action<ISocketClient> RemoteDisconnected;
         public Guid Id { get; private set; }
         public bool Disposed { get; private set; }
 
@@ -34,6 +35,7 @@ namespace Shark.Net.Internal
             {
                 _stream.Dispose();
                 _tcp.Dispose();
+                RemoteDisconnected = null;
                 Disposed = true;
             }
         }
@@ -79,6 +81,7 @@ namespace Shark.Net.Internal
             _tcp.Client.Disconnect(false);
             _tcp.Client.Shutdown(SocketShutdown.Receive);
             Logger.LogInformation("Socket no data to read, closed {0}", Id);
+            RemoteDisconnected?.Invoke(this);
         }
 
         public static async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null)
