@@ -65,6 +65,7 @@ namespace Shark.Net.Internal
             {
                 if (disposing)
                 {
+                    _tcp.GetStream().Dispose();
                     _tcp.Dispose();
                 }
             }
