@@ -201,7 +201,7 @@ namespace Shark.Net
                 {
                     if (addr.AddressFamily == AddressFamily.InterNetwork)
                     {
-                        return await ConnectTo(addressList[0], port, id);
+                        return await ConnectTo(addr, port, id);
                     }
                 }
                 throw new ArgumentException($"Address {address} cannot connect", nameof(address));
