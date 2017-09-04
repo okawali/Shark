@@ -29,7 +29,6 @@ namespace Shark.Net
 
         private bool _disposed = false;
         private object _writeLock;
-        private object _readLock;
         private Timer _timer;
 
         public SharkClient(SharkServer server)
@@ -39,7 +38,6 @@ namespace Shark.Net
             HttpClients = new ConcurrentDictionary<Guid, ISocketClient>();
             CanRead = true;
             _writeLock = new object();
-            _readLock = new object();
             DisconnectQueue = new ConcurrentQueue<Guid>();
             _timer = new Timer(OnTimeOut, null, 2000, 2000);
         }
@@ -54,21 +52,13 @@ namespace Shark.Net
 
         public virtual async Task<BlockData> ReadBlock()
         {
-            Monitor.Enter(_readLock);
-            try
+            var block = await ReadHeader();
+            if (block.IsValid)
             {
-                var block = await ReadHeader();
-                if (block.IsValid)
-                {
-                    block.Data = await ReadData(block.Length);
-                }
-                block.Check();
-                return block;
+                block.Data = await ReadData(block.Length);
             }
-            finally
-            {
-                Monitor.Exit(_readLock);
-            }
+            block.Check();
+            return block;
         }
 
         public virtual async Task WriteBlock(BlockData block)
@@ -200,7 +190,7 @@ namespace Shark.Net
 
         public virtual async Task<ISocketClient> ConnectTo(string address, int port, Guid? id = null)
         {
-            if (IPAddress.TryParse(address, out var ip) )
+            if (IPAddress.TryParse(address, out var ip))
             {
                 return await ConnectTo(ip, port);
             }
