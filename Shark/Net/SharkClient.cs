@@ -203,8 +203,8 @@ namespace Shark.Net
                     {
                         return await ConnectTo(addressList[0], port, id);
                     }
-                    throw new ArgumentException($"Address {address} cannot connect", nameof(address));
                 }
+                throw new ArgumentException($"Address {address} cannot connect", nameof(address));
             }
         }
 
