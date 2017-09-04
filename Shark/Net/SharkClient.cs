@@ -8,6 +8,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -189,14 +190,21 @@ namespace Shark.Net
 
         public virtual async Task<ISocketClient> ConnectTo(string address, int port, Guid? id = null)
         {
-            if (IPAddress.TryParse(address, out var ip))
+            if (IPAddress.TryParse(address, out var ip) )
             {
                 return await ConnectTo(ip, port);
             }
             else
             {
                 var addressList = await Dns.GetHostAddressesAsync(address);
-                return await ConnectTo(addressList[0], port, id);
+                foreach (var addr in addressList)
+                {
+                    if (addr.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        return await ConnectTo(addressList[0], port, id);
+                    }
+                    throw new ArgumentException($"Address {address} cannot connect", nameof(address));
+                }
             }
         }
 
