@@ -27,12 +27,14 @@ namespace Shark.Net.Internal
         private ILogger _logger;
         private TcpClient _tcp;
         private NetworkStream _stream;
+        private object _syncRoot;
 
         internal DefaultSharkClient(TcpClient tcp, SharkServer server)
             : base(server)
         {
             _tcp = tcp;
             _stream = _tcp.GetStream();
+            _syncRoot = new object();
         }
 
         public override async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null)
@@ -73,18 +75,21 @@ namespace Shark.Net.Internal
 
         protected override void Dispose(bool disposing)
         {
-            if (!Disposed)
+            lock (_syncRoot)
             {
-                if (disposing)
+                if (!Disposed)
                 {
-                    _tcp.Client.Shutdown(SocketShutdown.Both);
-                    _tcp.Client.Disconnect(false);
-                    _stream.Dispose();
-                    _tcp.Dispose();
-                    RemoteDisconnected = null;
+                    if (disposing)
+                    {
+                        _tcp.Client.Shutdown(SocketShutdown.Both);
+                        _tcp.Client.Disconnect(false);
+                        _stream.Dispose();
+                        _tcp.Dispose();
+                        RemoteDisconnected = null;
+                    }
                 }
+                base.Dispose(disposing);
             }
-            base.Dispose(disposing);
         }
     }
 }

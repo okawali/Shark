@@ -28,19 +28,7 @@ namespace Shark.Net.Internal
         private ILogger _logger;
         private TcpClient _tcp;
         private NetworkStream _stream;
-
-        public void Dispose()
-        {
-            if (!Disposed)
-            {
-                _tcp.Client.Shutdown(SocketShutdown.Both);
-                _tcp.Client.Disconnect(false);
-                _stream.Dispose();
-                _tcp.Dispose();
-                RemoteDisconnected = null;
-                Disposed = true;
-            }
-        }
+        private object _syncRoot;
 
         public DefaultSocketClient(TcpClient tcp, Guid? id = null)
         {
@@ -55,6 +43,7 @@ namespace Shark.Net.Internal
             {
                 Id = Guid.NewGuid();
             }
+            _syncRoot = new object();
         }
 
         public Task FlushAsync()
@@ -84,6 +73,22 @@ namespace Shark.Net.Internal
             _tcp.Client.Disconnect(false);
             Logger.LogInformation("Socket no data to read, closed {0}", Id);
             RemoteDisconnected?.Invoke(this);
+        }
+
+        public void Dispose()
+        {
+            lock (_syncRoot)
+            {
+                if (!Disposed)
+                {
+                    _tcp.Client.Shutdown(SocketShutdown.Both);
+                    _tcp.Client.Disconnect(false);
+                    _stream.Dispose();
+                    _tcp.Dispose();
+                    RemoteDisconnected = null;
+                    Disposed = true;
+                }
+            }
         }
 
         public static async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null)
