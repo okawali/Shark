@@ -52,13 +52,21 @@ namespace Shark.Net
 
         public virtual async Task<BlockData> ReadBlock()
         {
-            var block = await ReadHeader();
-            if (block.IsValid)
+            Monitor.Enter(_syncRoot);
+            try
             {
-                block.Data = await ReadData(block.Length);
+                var block = await ReadHeader();
+                if (block.IsValid)
+                {
+                    block.Data = await ReadData(block.Length);
+                }
+                block.Check();
+                return block;
             }
-            block.Check();
-            return block;
+            finally
+            {
+                Monitor.Exit(_syncRoot);
+            }
         }
 
         public virtual async Task WriteBlock(BlockData block)
