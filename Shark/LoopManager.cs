@@ -115,7 +115,7 @@ namespace Shark
             var task = Task.Factory.StartNew(async () =>
             {
                 var buffer = new Byte[BUFFER_SIZE];
-                byte number = 0;
+                int number = 0;
                 try
                 {
                     var readed = 0;
