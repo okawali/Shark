@@ -6,11 +6,11 @@ namespace Shark.Data
 {
     public struct BlockData
     {
-        public const int HEADER_SIZE = 26;
+        public const int HEADER_SIZE = 29;
 
         public Guid Id { set; get; }
         public byte Type { set; get; }
-        public byte BlockNumber { set; get; }
+        public int BlockNumber { set; get; }
         public uint Crc32 { set; get; }
         public int Length { set; get; }
         public byte[] Data { set; get; }
@@ -54,12 +54,13 @@ namespace Shark.Data
             Buffer.BlockCopy(Id.ToByteArray(), 0, header, 0, 16);
 
             header[16] = Type;
-            header[17] = BlockNumber;
 
             fixed (byte* bPtr = header)
             {
                 byte* ptr = bPtr;
-                ptr += 18;
+                ptr += 17;
+                *((int*)ptr) = BlockNumber;
+                ptr += 4;
                 *((uint*)ptr) = Crc32;
                 ptr += 4;
                 *((int*)ptr) = Length;
@@ -81,12 +82,13 @@ namespace Shark.Data
 
             result.Id = new Guid(guidData);
             result.Type = header[16];
-            result.BlockNumber = header[17];
 
             fixed (byte* bPtr = header)
             {
                 byte* ptr = bPtr;
-                ptr += 18;
+                ptr += 17;
+                result.BlockNumber = *((int*)ptr);
+                ptr += 4;
                 result.Crc32 = *((uint*)ptr);
                 ptr += 4;
                 result.Length = *((int*)ptr);
