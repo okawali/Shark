@@ -28,7 +28,7 @@ namespace Shark.Net
         public abstract event Action<ISocketClient> RemoteDisconnected;
 
         private bool _disposed = false;
-        private object _writeLock;
+        private SemaphoreSlim _writeSemaphore;
         private Timer _timer;
 
         public SharkClient(SharkServer server)
@@ -37,7 +37,7 @@ namespace Shark.Net
             Server = server;
             HttpClients = new ConcurrentDictionary<Guid, ISocketClient>();
             CanRead = true;
-            _writeLock = new object();
+            _writeSemaphore = new SemaphoreSlim(1, 1);
             DisconnectQueue = new ConcurrentQueue<Guid>();
             _timer = new Timer(OnTimeOut, null, 2000, 2000);
         }
@@ -63,7 +63,7 @@ namespace Shark.Net
 
         public virtual async Task WriteBlock(BlockData block)
         {
-            Monitor.Enter(_writeLock);
+            await _writeSemaphore.WaitAsync();
             try
             {
                 var header = block.GenerateHeader();
@@ -77,7 +77,7 @@ namespace Shark.Net
             }
             finally
             {
-                Monitor.Exit(_writeLock);
+                _writeSemaphore.Release();
             }
         }
 
@@ -232,6 +232,7 @@ namespace Shark.Net
                     }
                     HttpClients.Clear();
                     _timer.Dispose();
+                    _writeSemaphore.Dispose();
                 }
                 _disposed = true;
             }
