@@ -22,7 +22,7 @@ namespace Shark.Crypto
         public AesHelper()
             : base()
         {
-            this.Mode = CipherMode.CBC;
+            this.Mode = CipherMode.CFB;
             this.Padding = PaddingMode.PKCS7;
             this.KeySize = 256;
         }
