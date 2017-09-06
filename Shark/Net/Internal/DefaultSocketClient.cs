@@ -69,8 +69,7 @@ namespace Shark.Net.Internal
 
         private void CloseConnetion()
         {
-            _tcp.Client.Shutdown(SocketShutdown.Receive);
-            _tcp.Client.Disconnect(false);
+            _tcp.Client.Shutdown(SocketShutdown.Send);
             Logger.LogInformation("Socket no data to read, closed {0}", Id);
             RemoteDisconnected?.Invoke(this);
         }
