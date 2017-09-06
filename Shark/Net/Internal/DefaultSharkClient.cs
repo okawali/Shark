@@ -86,8 +86,8 @@ namespace Shark.Net.Internal
                         _tcp.Dispose();
                         RemoteDisconnected = null;
                     }
+                    base.Dispose(disposing);
                 }
-                base.Dispose(disposing);
             }
         }
     }
