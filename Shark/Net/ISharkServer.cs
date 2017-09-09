@@ -20,6 +20,6 @@ namespace Shark.Net
         ISharkServer OnClientConnected(Action<SharkClient> onConnected);
         void RemoveClient(SharkClient client);
         void RemoveClient(Guid id);
-        Task Start();
+        Task Start(int backlog = 128);
     }
 }

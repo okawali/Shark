@@ -36,9 +36,9 @@ namespace Shark.Net.Internal
 
         }
 
-        public override async Task Start()
+        public override async Task Start(int backlog = 128)
         {
-            _listener.Start();
+            _listener.Start(backlog);
             Logger.LogInformation($"Server started, listening on {_listener.LocalEndpoint}");
             while (true)
             {

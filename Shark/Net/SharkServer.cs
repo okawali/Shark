@@ -86,7 +86,7 @@ namespace Shark.Net
         #endregion
 
         public abstract ISharkServer Bind(IPEndPoint endPoint);
-        public abstract Task Start();
+        public abstract Task Start(int backlog = 128);
 
         public static ISharkServer Create()
         {
