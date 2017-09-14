@@ -9,7 +9,7 @@ namespace Shark.Crypto
 
         static private uint[,] CRC32Table;
 
-        private uint hash;
+        private uint _hash;
 
         static Crc32()
         {
@@ -24,13 +24,13 @@ namespace Shark.Crypto
 
         public override void Initialize()
         {
-            hash = 0x0;
+            _hash = 0x0;
         }
 
         unsafe protected override void HashCore(byte[] array, int ibStart, int cbSize)
         {
             int len = cbSize;
-            uint crc = ~hash;
+            uint crc = ~_hash;
             int i = ibStart;
 
             fixed (byte* bptr = array)
@@ -78,21 +78,22 @@ namespace Shark.Crypto
                 }
             }
 
-            while (i < cbSize)
+            while (len > 0)
             {
                 unchecked
                 {
                     crc = (crc >> 8) ^ CRC32Table[0, (crc & 0xFF) ^ array[i]];
                     i++;
+                    len--;
                 }
             }
 
-            hash = ~crc;
+            _hash = ~crc;
         }
 
         protected override byte[] HashFinal()
         {
-            var bytes = BitConverter.GetBytes(hash);
+            var bytes = BitConverter.GetBytes(_hash);
             if (BitConverter.IsLittleEndian)
                 Array.Reverse(bytes);
 

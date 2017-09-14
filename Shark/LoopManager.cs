@@ -131,7 +131,7 @@ namespace Shark
                         };
                         Buffer.BlockCopy(buffer, 0, block.Data, 0, readed);
                         client.EncryptBlock(ref block);
-                        block.Crc32 = block.ComputeCrc();
+                        block.BodyCrc32 = block.ComputeCrc();
                         await client.WriteBlock(block);
                     }
                     socketClient.Logger.LogInformation("http closed {0}", socketClient.Id);

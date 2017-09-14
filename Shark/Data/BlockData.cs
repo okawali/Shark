@@ -6,13 +6,14 @@ namespace Shark.Data
 {
     public struct BlockData
     {
-        public const int HEADER_SIZE = 29;
+        public const int HEADER_SIZE = 33;
 
         public Guid Id { set; get; }
         public byte Type { set; get; }
         public int BlockNumber { set; get; }
-        public uint Crc32 { set; get; }
+        public uint BodyCrc32 { set; get; }
         public int Length { set; get; }
+        public uint HeaderCrc32 { set; get; }
         public byte[] Data { set; get; }
         public bool IsValid => Type != BlockType.INVALID;
 
@@ -33,7 +34,7 @@ namespace Shark.Data
                 return;
             }
 
-            if ((Data?.Length ?? 0) != Length || Crc32 != ComputeCrc())
+            if ((Data?.Length ?? 0) != Length || BodyCrc32 != ComputeCrc())
             {
                 MarkInvalid();
             }
@@ -61,13 +62,24 @@ namespace Shark.Data
                 ptr += 17;
                 *((int*)ptr) = BlockNumber;
                 ptr += 4;
-                *((uint*)ptr) = Crc32;
+                *((uint*)ptr) = BodyCrc32;
                 ptr += 4;
                 *((int*)ptr) = Length;
             }
 
+            using (var crc = new Crc32())
+            {
+                crc.TransformFinalBlock(header, 0, HEADER_SIZE - 4);
+                var hash = crc.Hash;
+                Array.Reverse(hash);
+                Buffer.BlockCopy(hash, 0, header, HEADER_SIZE - 4, 4);
+                HeaderCrc32 = BitConverter.ToUInt32(hash, 0);
+            }
+
             return header;
         }
+
+        public override string ToString() => $"{Id}:{Type}:{BlockNumber}:{Length}";
 
         public unsafe static bool TryParseHeader(byte[] header, out BlockData result)
         {
@@ -89,11 +101,24 @@ namespace Shark.Data
                 ptr += 17;
                 result.BlockNumber = *((int*)ptr);
                 ptr += 4;
-                result.Crc32 = *((uint*)ptr);
+                result.BodyCrc32 = *((uint*)ptr);
                 ptr += 4;
                 result.Length = *((int*)ptr);
+                ptr += 4;
+                result.HeaderCrc32 = *((uint*)ptr);
             }
-            return true;
+
+            uint headerCheck;
+
+            using (var crc = new Crc32())
+            {
+                crc.TransformFinalBlock(header, 0, HEADER_SIZE - 4);
+                var hash = crc.Hash;
+                Array.Reverse(hash);
+                headerCheck = BitConverter.ToUInt32(hash, 0);
+            }
+
+            return headerCheck == result.HeaderCrc32;
         }
     }
 }

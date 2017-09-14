@@ -116,6 +116,11 @@ namespace Shark.Net
                 }
             }
             var valid = BlockData.TryParseHeader(header, out var block);
+            if (!valid)
+            {
+                block.Type = BlockType.INVALID;
+                throw new SharkException("Invalid Header");
+            }
             return block;
         }
 
@@ -149,7 +154,7 @@ namespace Shark.Net
             var data = JsonConvert.SerializeObject(ids);
             block.Data = Encoding.UTF8.GetBytes(data);
             EncryptBlock(ref block);
-            block.Crc32 = block.ComputeCrc();
+            block.BodyCrc32 = block.ComputeCrc();
             Logger.LogDebug("Disconnet {0}", data);
             await WriteBlock(block);
         }
