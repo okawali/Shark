@@ -44,6 +44,7 @@ namespace Shark.Net.Internal
             {
                 var client = await _listener.AcceptTcpClientAsync();
                 var sharkClient = new DefaultSharkClient(client, this);
+                client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
                 OnClientConnect(sharkClient);
             }
         }
