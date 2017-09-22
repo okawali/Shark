@@ -1,20 +1,31 @@
 ﻿using Shark.Constants;
 using Shark.Crypto;
 using System;
+using System.Runtime.InteropServices;
 
 namespace Shark.Data
 {
-    public struct BlockData
+    [StructLayout(LayoutKind.Explicit)]
+    public unsafe struct BlockData
     {
         public const int HEADER_SIZE = 33;
 
-        public Guid Id { set; get; }
-        public byte Type { set; get; }
-        public int BlockNumber { set; get; }
-        public uint BodyCrc32 { set; get; }
-        public int Length { set; get; }
-        public uint HeaderCrc32 { set; get; }
-        public byte[] Data { set; get; }
+        [FieldOffset(0)]
+        private fixed byte _bin[HEADER_SIZE];
+        [FieldOffset(0)]
+        public Guid Id;
+        [FieldOffset(16)]
+        public byte Type;
+        [FieldOffset(17)]
+        public int BlockNumber;
+        [FieldOffset(21)]
+        public uint BodyCrc32;
+        [FieldOffset(25)]
+        public int Length;
+        [FieldOffset(29)]
+        public uint HeaderCrc32;
+        [FieldOffset(HEADER_SIZE % 8 == 0 ? HEADER_SIZE : (HEADER_SIZE / 8 + 1) * 8)]
+        public byte[] Data;
         public bool IsValid => Type != BlockType.INVALID;
 
         public uint ComputeCrc()
@@ -52,28 +63,21 @@ namespace Shark.Data
                 throw new InvalidOperationException("Data length not matched");
             }
             var header = new byte[HEADER_SIZE];
-            Buffer.BlockCopy(Id.ToByteArray(), 0, header, 0, 16);
 
-            header[16] = Type;
-
-            fixed (byte* bPtr = header)
+            fixed (byte* ptr = _bin)
             {
-                byte* ptr = bPtr;
-                ptr += 17;
-                *((int*)ptr) = BlockNumber;
-                ptr += 4;
-                *((uint*)ptr) = BodyCrc32;
-                ptr += 4;
-                *((int*)ptr) = Length;
-            }
+                Marshal.Copy((IntPtr)ptr, header, 0, HEADER_SIZE - 4);
 
-            using (var crc = new Crc32())
-            {
-                crc.TransformFinalBlock(header, 0, HEADER_SIZE - 4);
-                var hash = crc.Hash;
-                Array.Reverse(hash);
-                Buffer.BlockCopy(hash, 0, header, HEADER_SIZE - 4, 4);
-                HeaderCrc32 = BitConverter.ToUInt32(hash, 0);
+                using (var crc = new Crc32())
+                {
+                    crc.TransformFinalBlock(header, 0, HEADER_SIZE - 4);
+                    var hash = crc.Hash;
+                    Array.Reverse(hash);
+                    Buffer.BlockCopy(hash, 0, header, HEADER_SIZE - 4, 4);
+                    HeaderCrc32 = BitConverter.ToUInt32(hash, 0);
+                }
+
+                Marshal.Copy((IntPtr)(ptr + HEADER_SIZE - 4), header, HEADER_SIZE - 4, 4);
             }
 
             return header;
@@ -89,23 +93,10 @@ namespace Shark.Data
             {
                 return false;
             }
-            var guidData = new byte[16];
-            Buffer.BlockCopy(header, 0, guidData, 0, 16);
 
-            result.Id = new Guid(guidData);
-            result.Type = header[16];
-
-            fixed (byte* bPtr = header)
+            fixed (byte* ptr = result._bin)
             {
-                byte* ptr = bPtr;
-                ptr += 17;
-                result.BlockNumber = *((int*)ptr);
-                ptr += 4;
-                result.BodyCrc32 = *((uint*)ptr);
-                ptr += 4;
-                result.Length = *((int*)ptr);
-                ptr += 4;
-                result.HeaderCrc32 = *((uint*)ptr);
+                Marshal.Copy(header, 0, (IntPtr)ptr, HEADER_SIZE);
             }
 
             uint headerCheck;
