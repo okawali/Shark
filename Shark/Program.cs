@@ -52,6 +52,10 @@ namespace Shark
                                     await client.WriteBlock(block);
                                     await client.RunSharkLoop();
                                 }
+                                else if (block.Type == BlockType.FAST_CONNECT)
+                                {
+                                    await client.RunSharkLoop(block);
+                                }
                             }
                             catch (Exception e)
                             {

@@ -5,6 +5,7 @@ using Shark.Data;
 using Shark.Net;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -29,12 +30,12 @@ namespace Shark
 #pragma warning disable CS4014
                             if (block.Type == BlockType.CONNECT)
                             {
-                                ProcessConnect(block, client);
+                                client.ProcessConnect(block);
                             }
                             else if (block.Type == BlockType.DATA)
                             {
                                 client.Logger.LogDebug($"{block.Id}:{block.BlockNumber}:{block.Length}");
-                                ProcessData(block, client);
+                                client.ProcessData(block);
                             }
                             else if (block.Type == BlockType.DISCONNECT)
                             {
@@ -63,10 +64,28 @@ namespace Shark
             return task;
         }
 
-        private static async Task ProcessConnect(BlockData block, SharkClient client)
+        public static Task RunSharkLoop(this SharkClient client, BlockData fastConnectblock)
+        {
+            var data = fastConnectblock.Data;
+            var password = data.Take(16).ToArray();
+            data = data.Skip(16).ToArray();
+            client.GenerateCryptoHelper(password);
+            fastConnectblock.Data = data;
+            client.DecryptBlock(ref fastConnectblock);
+#pragma warning disable CS4014
+            client.ProcessConnect(fastConnectblock, true);
+#pragma warning restore CS4014
+            return client.RunSharkLoop();
+        }
+
+        private static async Task ProcessConnect(this SharkClient client, BlockData block, bool isFastConnect = false)
         {
             ISocketClient http = null;
             BlockData resp = new BlockData() { Type = BlockType.CONNECTED, Id = block.Id };
+            if (isFastConnect)
+            {
+                resp.Data = client.Id.ToByteArray();
+            }
             try
             {
                 client.Logger.LogInformation("Process connect {0}", block.Id);
@@ -88,6 +107,7 @@ namespace Shark
             try
             {
                 client.EncryptBlock(ref resp);
+                resp.BodyCrc32 = resp.ComputeCrc();
                 await client.WriteBlock(resp);
                 if (resp.Type == BlockType.CONNECTED)
                 {
@@ -102,7 +122,7 @@ namespace Shark
             }
         }
 
-        private static async Task ProcessData(BlockData block, SharkClient client)
+        private static async Task ProcessData(this SharkClient client, BlockData block)
         {
             if (client.HttpClients.TryGetValue(block.Id, out var http))
             {

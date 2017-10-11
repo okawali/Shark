@@ -42,10 +42,10 @@ namespace Shark.Net
             _timer = new Timer(OnTimeOut, null, 2000, 2000);
         }
 
-        public virtual ICryptoHelper GenerateCryptoHelper(byte[] passowrd)
+        public virtual ICryptoHelper GenerateCryptoHelper(byte[] password)
         {
-            var iv = ScryptUtil.Scrypt(passowrd, Id.ToByteArray(), 256, 8, 16, 16);
-            var key = ScryptUtil.Scrypt(passowrd, iv, 512, 8, 16, 32);
+            var iv = ScryptUtil.Scrypt(password, password, 256, 8, 16, 16);
+            var key = ScryptUtil.Scrypt(password, iv, 512, 8, 16, 32);
             CryptoHelper = new AesHelper(key, iv);
             return CryptoHelper;
         }
