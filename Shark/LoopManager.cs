@@ -58,7 +58,7 @@ namespace Shark
                 {
                     client.Logger.LogError(e, "Shark errored");
                 }
-            }, TaskCreationOptions.LongRunning)
+            })
             .Unwrap();
 
             return task;
@@ -163,7 +163,7 @@ namespace Shark
                 client.DisconnectQueue.Enqueue(socketClient.Id);
                 socketClient.Dispose();
                 client.RemoveHttpClient(socketClient);
-            }, TaskCreationOptions.LongRunning)
+            })
             .Unwrap();
         }
     }
