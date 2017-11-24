@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 
 namespace Shark.Net
@@ -20,6 +21,6 @@ namespace Shark.Net
         ISharkServer OnClientConnected(Action<SharkClient> onConnected);
         void RemoveClient(SharkClient client);
         void RemoveClient(Guid id);
-        Task Start(int backlog = 128);
+        Task Start(int backlog = (int)SocketOptionName.MaxConnections);
     }
 }

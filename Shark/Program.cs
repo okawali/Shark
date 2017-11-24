@@ -4,6 +4,7 @@ using Shark.Constants;
 using Shark.Data;
 using Shark.Net;
 using System;
+using System.Net.Sockets;
 
 namespace Shark
 {
@@ -14,11 +15,13 @@ namespace Shark
             var address = "127.0.0.1";
             var port = 12306;
             var showHelp = false;
+            var backlog = (int)SocketOptionName.MaxConnections;
             var optionSet = new OptionSet()
             {
                 { "a|addr=", "bind address default='127.0.0.1'", addr => address = addr },
                 { "p|port=", "bind port default=12306", (int p) => port = p },
-                { "h|help", "show this message and exit",  h => showHelp = h != null }
+                { "b|backlog=", "accept backlog default use SocketOptionName.MaxConnections", (int b) => backlog = b },
+                { "h|help", "show this message and exit",  h => showHelp = h != null },
             };
 
             try
@@ -69,7 +72,7 @@ namespace Shark
                             }
                         })
                         .Bind(address, port)
-                        .Start().Wait();
+                        .Start(backlog).Wait();
 
                 }
             }

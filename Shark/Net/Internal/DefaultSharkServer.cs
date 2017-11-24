@@ -36,10 +36,10 @@ namespace Shark.Net.Internal
 
         }
 
-        public override async Task Start(int backlog = 128)
+        public override async Task Start(int backlog = (int)SocketOptionName.MaxConnections)
         {
             _listener.Start(backlog);
-            Logger.LogInformation($"Server started, listening on {_listener.LocalEndpoint}");
+            Logger.LogInformation($"Server started, listening on {_listener.LocalEndpoint}, backlog: {backlog}");
             while (true)
             {
                 var client = await _listener.AcceptTcpClientAsync();
