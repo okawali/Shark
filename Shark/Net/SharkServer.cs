@@ -4,6 +4,7 @@ using Shark.Net.Internal;
 using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 
 namespace Shark.Net
@@ -86,7 +87,7 @@ namespace Shark.Net
         #endregion
 
         public abstract ISharkServer Bind(IPEndPoint endPoint);
-        public abstract Task Start(int backlog = 128);
+        public abstract Task Start(int backlog = (int)SocketOptionName.MaxConnections);
 
         public static ISharkServer Create()
         {
