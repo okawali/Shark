@@ -1,11 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Net;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Shark.Logging;
+using System;
+using System.Net;
 using System.Net.Sockets;
+using System.Threading.Tasks;
 
 namespace Shark.Net.Internal
 {
