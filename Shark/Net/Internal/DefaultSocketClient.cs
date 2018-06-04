@@ -92,8 +92,17 @@ namespace Shark.Net.Internal
 
         public static async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null)
         {
-            var tcp = new TcpClient();
-            await tcp.ConnectAsync(endPoint.Address, endPoint.Port);
+            var tcp = new TcpClient(AddressFamily.InterNetworkV6);
+            tcp.Client.DualMode = true;
+            try
+            {
+                await tcp.ConnectAsync(endPoint.Address, endPoint.Port);
+            }
+            catch (Exception)
+            {
+                tcp.Dispose();
+                throw;
+            }
             return new DefaultSocketClient(tcp, id);
         }
     }

@@ -204,9 +204,13 @@ namespace Shark.Net
                 var addressList = await Dns.GetHostAddressesAsync(address);
                 foreach (var addr in addressList)
                 {
-                    if (addr.AddressFamily == AddressFamily.InterNetwork)
+                    try
                     {
                         return await ConnectTo(addr, port, id);
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.LogWarning(e, $"Failed to connected to address {addr}, trying next");
                     }
                 }
                 throw new ArgumentException($"Address {address} cannot connect", nameof(address));

@@ -27,6 +27,10 @@ namespace Shark.Net.Internal
         public override ISharkServer Bind(IPEndPoint endPoint)
         {
             _listener = new TcpListener(endPoint);
+            if (endPoint.Address.Equals(IPAddress.IPv6Any))
+            {
+                _listener.Server.DualMode = true;
+            }
             return this;
         }
 
