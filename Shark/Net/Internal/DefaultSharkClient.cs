@@ -83,6 +83,8 @@ namespace Shark.Net.Internal
                         _stream.Dispose();
                         _tcp.Dispose();
                         RemoteDisconnected = null;
+                        _tcp = null;
+                        _stream = null;
                     }
                     base.Dispose(disposing);
                 }

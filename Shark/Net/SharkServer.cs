@@ -70,12 +70,16 @@ namespace Shark.Net
             {
                 if (disposing)
                 {
+                    // dispose managed state (managed objects).
                     foreach (var client in Clients)
                     {
                         client.Value.Dispose();
                     }
                     Clients.Clear();
                 }
+
+                // free unmanaged resources (unmanaged objects) and override a finalizer below.
+                // set large fields to null.
                 _disposed = true;
             }
         }
@@ -83,6 +87,12 @@ namespace Shark.Net
         public void Dispose()
         {
             Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        ~SharkServer()
+        {
+            Dispose(false);
         }
         #endregion
 
