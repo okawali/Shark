@@ -74,22 +74,6 @@ namespace Shark.Net.Internal
             RemoteDisconnected?.Invoke(this);
         }
 
-        public void Dispose()
-        {
-            lock (_syncRoot)
-            {
-                if (!Disposed)
-                {
-                    _tcp.Client.Shutdown(SocketShutdown.Both);
-                    _tcp.Client.Disconnect(false);
-                    _stream.Dispose();
-                    _tcp.Dispose();
-                    RemoteDisconnected = null;
-                    Disposed = true;
-                }
-            }
-        }
-
         public static async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null)
         {
             var tcp = new TcpClient(AddressFamily.InterNetworkV6);
@@ -105,5 +89,47 @@ namespace Shark.Net.Internal
             }
             return new DefaultSocketClient(tcp, id);
         }
+
+        #region IDisposable Support
+
+        protected virtual void Dispose(bool disposing)
+        {
+            lock (_syncRoot)
+            {
+                if (!Disposed)
+                {
+                    if (disposing)
+                    {
+                        // dispose managed state (managed objects).
+                        _tcp.Client.Shutdown(SocketShutdown.Both);
+                        _tcp.Client.Disconnect(false);
+                        _stream.Dispose();
+                        _tcp.Dispose();
+                        RemoteDisconnected = null;
+                    }
+
+                    // free unmanaged resources (unmanaged objects) and override a finalizer below.
+                    // set large fields to null.
+
+                    Disposed = true;
+                }
+            }
+        }
+
+        // TODO: override a finalizer only if Dispose(bool disposing) above has code to free unmanaged resources.
+        ~DefaultSocketClient()
+        {
+            Dispose(false);
+        }
+
+        // This code added to correctly implement the disposable pattern.
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
+            Dispose(true);
+            // TODO: uncomment the following line if the finalizer is overridden above.
+            GC.SuppressFinalize(this);
+        }
+        #endregion
     }
 }
