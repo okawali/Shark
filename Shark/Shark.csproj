@@ -5,8 +5,10 @@
     <TargetFramework>netcoreapp2.1</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>shark-server</AssemblyName>
-    <Version>3.2.0</Version>
+    <Version>3.2.2</Version>
     <LangVersion>7.3</LangVersion>
+	<PackAsTool>true</PackAsTool>
+    <ToolCommandName>shark-server</ToolCommandName>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">

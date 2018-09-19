@@ -69,25 +69,16 @@ namespace Shark.Net.Internal
 
         private void CloseConnetion()
         {
-            _tcp.Client.Shutdown(SocketShutdown.Send);
+            try
+            {
+                _tcp.Client.Shutdown(SocketShutdown.Send);
+            }
+            catch (Exception)
+            {
+                Logger.LogWarning("Socket errored before shutdown and disconnect");
+            }
             Logger.LogInformation("Socket no data to read, closed {0}", Id);
             RemoteDisconnected?.Invoke(this);
-        }
-
-        public void Dispose()
-        {
-            lock (_syncRoot)
-            {
-                if (!Disposed)
-                {
-                    _tcp.Client.Shutdown(SocketShutdown.Both);
-                    _tcp.Client.Disconnect(false);
-                    _stream.Dispose();
-                    _tcp.Dispose();
-                    RemoteDisconnected = null;
-                    Disposed = true;
-                }
-            }
         }
 
         public static async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null)
@@ -105,5 +96,53 @@ namespace Shark.Net.Internal
             }
             return new DefaultSocketClient(tcp, id);
         }
+
+        #region IDisposable Support
+
+        protected virtual void Dispose(bool disposing)
+        {
+            lock (_syncRoot)
+            {
+                if (!Disposed)
+                {
+                    if (disposing)
+                    {
+                        // dispose managed state (managed objects).
+                        try
+                        {
+                            _tcp.Client.Shutdown(SocketShutdown.Both);
+                            _tcp.Client.Disconnect(false);
+                        }
+                        catch (Exception)
+                        {
+                            Logger.LogWarning("Socket errored before shutdown and disconnect");
+                        }
+                        _stream.Dispose();
+                        _tcp.Dispose();
+                        RemoteDisconnected = null;
+                    }
+
+                    // free unmanaged resources (unmanaged objects) and override a finalizer below.
+                    // set large fields to null.
+
+                    Disposed = true;
+                }
+            }
+        }
+
+        // override a finalizer only if Dispose(bool disposing) above has code to free unmanaged resources.
+        ~DefaultSocketClient()
+        {
+            Dispose(false);
+        }
+
+        // This code added to correctly implement the disposable pattern.
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+        #endregion
     }
 }
