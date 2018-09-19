@@ -78,8 +78,15 @@ namespace Shark.Net.Internal
                 {
                     if (disposing)
                     {
-                        _tcp.Client.Shutdown(SocketShutdown.Both);
-                        _tcp.Client.Disconnect(false);
+                        try
+                        {
+                            _tcp.Client.Shutdown(SocketShutdown.Both);
+                            _tcp.Client.Disconnect(false);
+                        }
+                        catch (Exception)
+                        {
+                            Logger.LogWarning("Socket errored before shutdown and disconnect");
+                        }
                         _stream.Dispose();
                         _tcp.Dispose();
                         RemoteDisconnected = null;
