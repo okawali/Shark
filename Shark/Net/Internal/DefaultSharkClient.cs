@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Shark.Net.Internal
 {
-    class DefaultSharkClient : SharkClient
+    internal class DefaultSharkClient : SharkClient
     {
         public override event Action<ISocketClient> RemoteDisconnected;
         public override ILogger Logger

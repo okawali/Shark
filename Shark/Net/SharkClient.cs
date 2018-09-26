@@ -8,7 +8,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
-using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -99,6 +98,15 @@ namespace Shark.Net
             }
         }
 
+
+        public Guid ChangeId(Guid id)
+        {
+            var oldId = Id;
+            Server.RemoveClient(this);
+            Id = id;
+            Server.Clients.Add(id, this);
+            return oldId;
+        }
 
         private async Task<BlockData> ReadHeader()
         {
