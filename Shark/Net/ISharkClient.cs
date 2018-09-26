@@ -21,7 +21,8 @@ namespace Shark.Net
         Task<ISocketClient> ConnectTo(IPAddress address, int port, Guid? id = null);
         Task<ISocketClient> ConnectTo(string address, int port, Guid? id = null);
         Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null);
-        ICryptoHelper GenerateCryptoHelper(byte[] passowrd);
+        ICryptoHelper GenerateCryptoHelper(byte[] password);
+        Guid ChangeId(Guid id);
         void EncryptBlock(ref BlockData block);
         void DecryptBlock(ref BlockData block);
         void RemoveHttpClient(Guid id);
