@@ -17,7 +17,7 @@ namespace Shark
 
         public static Task RunSharkLoop(this SharkClient client)
         {
-            var task = Task.Factory.StartNew(async () =>
+            return Task.Factory.StartNew(async () =>
             {
                 try
                 {
@@ -60,8 +60,6 @@ namespace Shark
                 }
             })
             .Unwrap();
-
-            return task;
         }
 
         public static Task RunSharkLoop(this SharkClient client, BlockData fastConnectblock)
@@ -134,7 +132,7 @@ namespace Shark
         {
             var task = Task.Factory.StartNew(async () =>
             {
-                var buffer = new Byte[BUFFER_SIZE];
+                var buffer = new byte[BUFFER_SIZE];
                 int number = 0;
                 try
                 {
