@@ -15,7 +15,7 @@ namespace Shark
     {
         private const int BUFFER_SIZE = 1024 * 8;
 
-        public static Task RunSharkLoop(this SharkClient client)
+        public static Task RunSharkLoop(this ISharkClient client)
         {
             return Task.Factory.StartNew(async () =>
             {
@@ -62,7 +62,7 @@ namespace Shark
             .Unwrap();
         }
 
-        public static Task RunSharkLoop(this SharkClient client, BlockData fastConnectblock)
+        public static Task RunSharkLoop(this ISharkClient client, BlockData fastConnectblock)
         {
             var data = fastConnectblock.Data;
             var (id, password, encryptedData) = ParseFactConnectData(data);
@@ -91,7 +91,7 @@ namespace Shark
             return (id, password, encryptedData);
         }
 
-        private static async Task ProcessConnect(this SharkClient client, BlockData block, bool isFastConnect = false)
+        private static async Task ProcessConnect(this ISharkClient client, BlockData block, bool isFastConnect = false)
         {
             ISocketClient http = null;
             BlockData resp = new BlockData() { Type = BlockType.CONNECTED, Id = block.Id };
@@ -135,7 +135,7 @@ namespace Shark
             }
         }
 
-        private static async Task ProcessData(this SharkClient client, BlockData block)
+        private static async Task ProcessData(this ISharkClient client, BlockData block)
         {
             if (client.HttpClients.TryGetValue(block.Id, out var http))
             {
@@ -153,7 +153,7 @@ namespace Shark
             }
         }
 
-        private static void RunHttpLoop(this SharkClient client, ISocketClient socketClient)
+        private static void RunHttpLoop(this ISharkClient client, ISocketClient socketClient)
         {
             var task = Task.Factory.StartNew(async () =>
             {

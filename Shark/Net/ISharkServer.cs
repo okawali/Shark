@@ -11,15 +11,15 @@ namespace Shark.Net
     {
         bool Disposed { get; }
         IDictionary<Guid, ISharkClient> Clients { get; }
-        event Action<SharkClient> OnConnected;
+        event Action<ISharkClient> OnConnected;
         ILogger Logger { get; }
 
         ISharkServer ConfigureLogger(Action<ILoggerFactory> configure);
         ISharkServer Bind(IPAddress address, int port);
         ISharkServer Bind(string address, int port);
         ISharkServer Bind(IPEndPoint endPoint);
-        ISharkServer OnClientConnected(Action<SharkClient> onConnected);
-        void RemoveClient(SharkClient client);
+        ISharkServer OnClientConnected(Action<ISharkClient> onConnected);
+        void RemoveClient(ISharkClient client);
         void RemoveClient(Guid id);
         Task Start(int backlog = (int)SocketOptionName.MaxConnections);
     }

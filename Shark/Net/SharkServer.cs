@@ -14,7 +14,7 @@ namespace Shark.Net
         public bool Disposed => _disposed;
         public IDictionary<Guid, ISharkClient> Clients => _clients;
         public abstract ILogger Logger { get; }
-        public event Action<SharkClient> OnConnected;
+        public event Action<ISharkClient> OnConnected;
 
         protected Dictionary<Guid, ISharkClient> _clients = new Dictionary<Guid, ISharkClient>();
         private bool _disposed = false;
@@ -23,7 +23,7 @@ namespace Shark.Net
         {
         }
 
-        public ISharkServer OnClientConnected(Action<SharkClient> onConnected)
+        public ISharkServer OnClientConnected(Action<ISharkClient> onConnected)
         {
             OnConnected += onConnected;
             return this;
@@ -52,7 +52,7 @@ namespace Shark.Net
         }
 
 
-        public void RemoveClient(SharkClient client)
+        public void RemoveClient(ISharkClient client)
         {
             RemoveClient(client.Id);
         }
