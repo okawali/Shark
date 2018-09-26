@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Shark.Net.Internal
 {
-    class DefaultSocketClient : ISocketClient
+    internal class DefaultSocketClient : ISocketClient
     {
         public event Action<ISocketClient> RemoteDisconnected;
         public Guid Id { get; private set; }

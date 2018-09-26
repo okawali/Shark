@@ -17,7 +17,7 @@ namespace Shark
 
         public static Task RunSharkLoop(this SharkClient client)
         {
-            var task = Task.Factory.StartNew(async () =>
+            return Task.Factory.StartNew(async () =>
             {
                 try
                 {
@@ -27,7 +27,7 @@ namespace Shark
                         if (block.IsValid)
                         {
                             client.DecryptBlock(ref block);
-#pragma warning disable CS4014
+#pragma warning disable CS4014 // no waiting the http processing
                             if (block.Type == BlockType.CONNECT)
                             {
                                 client.ProcessConnect(block);
@@ -37,6 +37,7 @@ namespace Shark
                                 client.Logger.LogDebug($"{block.Id}:{block.BlockNumber}:{block.Length}");
                                 client.ProcessData(block);
                             }
+#pragma warning restore CS4014
                             else if (block.Type == BlockType.DISCONNECT)
                             {
                                 var ids = JsonConvert.DeserializeObject<List<Guid>>(Encoding.UTF8.GetString(block.Data));
@@ -50,7 +51,6 @@ namespace Shark
                                     }
                                 }
                             }
-#pragma warning restore CS4014
                         }
                     }
                 }
@@ -60,22 +60,35 @@ namespace Shark
                 }
             })
             .Unwrap();
-
-            return task;
         }
 
         public static Task RunSharkLoop(this SharkClient client, BlockData fastConnectblock)
         {
             var data = fastConnectblock.Data;
-            var password = data.Take(16).ToArray();
-            data = data.Skip(16).ToArray();
+            var (id, password, encryptedData) = ParseFactConnectData(data);
             client.GenerateCryptoHelper(password);
-            fastConnectblock.Data = data;
+            fastConnectblock.Data = encryptedData;
             client.DecryptBlock(ref fastConnectblock);
-#pragma warning disable CS4014
+            if (id != Guid.Empty)
+            {
+                client.ChangeId(id);
+            }
+
+#pragma warning disable CS4014 // no wait the http connecting
             client.ProcessConnect(fastConnectblock, true);
 #pragma warning restore CS4014
+
             return client.RunSharkLoop();
+        }
+
+        private static (Guid id, byte[] password, byte[] encryptedData) ParseFactConnectData(byte[] data)
+        {
+            var id = new Guid(data.Take(16).ToArray());
+            var len = BitConverter.ToInt32(data, 16);
+            var password = data.Skip(20).Take(len).ToArray();
+            var encryptedData = data.Skip(len + 20).ToArray();
+
+            return (id, password, encryptedData);
         }
 
         private static async Task ProcessConnect(this SharkClient client, BlockData block, bool isFastConnect = false)
@@ -126,7 +139,17 @@ namespace Shark
         {
             if (client.HttpClients.TryGetValue(block.Id, out var http))
             {
-                await http.WriteAsync(block.Data, 0, block.Data.Length);
+                try
+                {
+                    await http.WriteAsync(block.Data, 0, block.Data.Length);
+                }
+                catch (Exception)
+                {
+                    client.Logger.LogError("Http client errored closed, {0}", http.Id);
+                    client.DisconnectQueue.Enqueue(http.Id);
+                    http.Dispose();
+                    client.RemoveHttpClient(http);
+                }
             }
         }
 
@@ -134,7 +157,7 @@ namespace Shark
         {
             var task = Task.Factory.StartNew(async () =>
             {
-                var buffer = new Byte[BUFFER_SIZE];
+                var buffer = new byte[BUFFER_SIZE];
                 int number = 0;
                 try
                 {

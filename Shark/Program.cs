@@ -47,6 +47,10 @@ namespace Shark
                                 var block = await client.ReadBlock();
                                 if (block.Type == BlockType.HAND_SHAKE)
                                 {
+                                    if (block.Id != Guid.Empty)
+                                    {
+                                        client.ChangeId(block.Id);
+                                    }
                                     block = new BlockData() { Id = client.Id, Type = BlockType.HAND_SHAKE };
                                     await client.WriteBlock(block);
                                     block = await client.ReadBlock();

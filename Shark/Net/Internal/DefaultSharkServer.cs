@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Shark.Net.Internal
 {
-    class DefaultSharkServer : SharkServer
+    internal class DefaultSharkServer : SharkServer
     {
         private TcpListener _listener;
 
