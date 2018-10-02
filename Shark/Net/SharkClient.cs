@@ -57,6 +57,7 @@ namespace Shark.Net
                 block.Data = await ReadData(block.Length);
             }
             block.Check();
+            Logger.LogDebug("Receive {0}", block);
             return block;
         }
 
@@ -73,6 +74,7 @@ namespace Shark.Net
                     await WriteAsync(block.Data, 0, block.Data.Length);
                 }
                 await FlushAsync();
+                Logger.LogDebug("Write {0}", block);
             }
             finally
             {
