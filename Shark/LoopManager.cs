@@ -34,7 +34,6 @@ namespace Shark
                             }
                             else if (block.Type == BlockType.DATA)
                             {
-                                client.Logger.LogDebug($"{block.Id}:{block.BlockNumber}:{block.Length}");
                                 client.ProcessData(block);
                             }
 #pragma warning restore CS4014
