@@ -7,7 +7,7 @@
     <AssemblyName>shark-server</AssemblyName>
     <Version>4.0.3</Version>
     <LangVersion>7.3</LangVersion>
-	<PackAsTool>true</PackAsTool>
+    <PackAsTool>true</PackAsTool>
     <ToolCommandName>shark-server</ToolCommandName>
   </PropertyGroup>
 
