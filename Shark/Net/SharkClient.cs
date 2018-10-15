@@ -207,7 +207,7 @@ namespace Shark.Net
         {
             if (IPAddress.TryParse(address, out var ip))
             {
-                return await ConnectTo(ip, port);
+                return await ConnectTo(ip, port, id);
             }
             else
             {
