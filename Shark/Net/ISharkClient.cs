@@ -18,9 +18,9 @@ namespace Shark.Net
 
         Task<BlockData> ReadBlock();
         Task WriteBlock(BlockData block);
-        Task<ISocketClient> ConnectTo(IPAddress address, int port, Guid? id = null);
-        Task<ISocketClient> ConnectTo(string address, int port, Guid? id = null);
-        Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null);
+        Task<ISocketClient> ConnectTo(IPAddress address, int port, RemoteType type = RemoteType.Tcp, Guid? id = null);
+        Task<ISocketClient> ConnectTo(string address, int port, RemoteType type = RemoteType.Tcp, Guid? id = null);
+        Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, Guid ? id = null);
         ICryptoHelper GenerateCryptoHelper(byte[] password);
         Guid ChangeId(Guid id);
         void EncryptBlock(ref BlockData block);

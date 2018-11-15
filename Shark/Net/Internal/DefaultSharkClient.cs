@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Shark.Data;
 using Shark.Logging;
 using System;
 using System.Net;
@@ -35,7 +36,7 @@ namespace Shark.Net.Internal
             _syncRoot = new object();
         }
 
-        public override async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null)
+        public override async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, Guid? id = null)
         {
             var socket = await DefaultSocketClient.ConnectTo(endPoint, id);
             HttpClients.Add(socket.Id, socket);

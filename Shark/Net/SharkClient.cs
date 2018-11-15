@@ -198,16 +198,16 @@ namespace Shark.Net
         }
 
 
-        public virtual Task<ISocketClient> ConnectTo(IPAddress address, int port, Guid? id = null)
+        public virtual Task<ISocketClient> ConnectTo(IPAddress address, int port, RemoteType type = RemoteType.Tcp, Guid? id = null)
         {
-            return ConnectTo(new IPEndPoint(address, port), id);
+            return ConnectTo(new IPEndPoint(address, port), type, id);
         }
 
-        public virtual async Task<ISocketClient> ConnectTo(string address, int port, Guid? id = null)
+        public virtual async Task<ISocketClient> ConnectTo(string address, int port, RemoteType type = RemoteType.Tcp, Guid? id = null)
         {
             if (IPAddress.TryParse(address, out var ip))
             {
-                return await ConnectTo(ip, port, id);
+                return await ConnectTo(ip, port, type, id);
             }
             else
             {
@@ -216,14 +216,14 @@ namespace Shark.Net
                 {
                     try
                     {
-                        return await ConnectTo(addr, port, id);
+                        return await ConnectTo(addr, port, type, id);
                     }
                     catch (Exception e)
                     {
                         Logger.LogWarning(e, $"Failed to connected to address {addr}, trying next");
                     }
                 }
-                throw new ArgumentException($"Address {address} cannot connect", nameof(address));
+                throw new ArgumentException($"Address {address}:{port}/{type} cannot connect", nameof(address));
             }
         }
 
@@ -278,7 +278,7 @@ namespace Shark.Net
 
         public abstract Task<int> ReadAsync(byte[] buffer, int offset, int count);
         public abstract Task WriteAsync(byte[] buffer, int offset, int count);
-        public abstract Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null);
+        public abstract Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, Guid? id = null);
         public abstract Task FlushAsync();
     }
 }

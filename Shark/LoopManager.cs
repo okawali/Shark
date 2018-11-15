@@ -102,7 +102,7 @@ namespace Shark
             {
                 client.Logger.LogInformation("Process connect {0}", block.Id);
                 var host = JsonConvert.DeserializeObject<HostData>(Encoding.UTF8.GetString(block.Data));
-                http = await client.ConnectTo(host.Address, host.Port, block.Id);
+                http = await client.ConnectTo(host.Address, host.Port, host.Type, block.Id);
                 client.Logger.LogInformation("Connected {0}", block.Id);
             }
             catch (Exception)
