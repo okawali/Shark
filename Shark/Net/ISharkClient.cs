@@ -12,7 +12,7 @@ namespace Shark.Net
     {
         ICryptoHelper CryptoHelper { get; }
         ISharkServer Server { get; }
-        IDictionary<Guid, ISocketClient> HttpClients { get; }
+        IDictionary<Guid, ISocketClient> RemoteClients { get; }
         ConcurrentQueue<Guid> DisconnectQueue { get; }
         bool CanRead { get; }
 
@@ -25,7 +25,7 @@ namespace Shark.Net
         Guid ChangeId(Guid id);
         void EncryptBlock(ref BlockData block);
         void DecryptBlock(ref BlockData block);
-        void RemoveHttpClient(Guid id);
-        void RemoveHttpClient(ISocketClient client);
+        void RemoveRemoteClient(Guid id);
+        void RemoveRemoteClient(ISocketClient client);
     }
 }

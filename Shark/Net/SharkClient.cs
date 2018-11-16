@@ -19,7 +19,7 @@ namespace Shark.Net
         public Guid Id { get; private set; }
         public ISharkServer Server { get; private set; }
         public ICryptoHelper CryptoHelper { get; private set; }
-        public IDictionary<Guid, ISocketClient> HttpClients { get; private set; }
+        public IDictionary<Guid, ISocketClient> RemoteClients { get; private set; }
         public ConcurrentQueue<Guid> DisconnectQueue { get; private set; }
         public bool CanRead { get; protected set; }
         public abstract ILogger Logger { get; }
@@ -34,7 +34,7 @@ namespace Shark.Net
         {
             Id = Guid.NewGuid();
             Server = server;
-            HttpClients = new ConcurrentDictionary<Guid, ISocketClient>();
+            RemoteClients = new ConcurrentDictionary<Guid, ISocketClient>();
             CanRead = true;
             _writeSemaphore = new SemaphoreSlim(1, 1);
             DisconnectQueue = new ConcurrentQueue<Guid>();
@@ -228,14 +228,14 @@ namespace Shark.Net
         }
 
 
-        public void RemoveHttpClient(Guid id)
+        public void RemoveRemoteClient(Guid id)
         {
-            HttpClients.Remove(id);
+            RemoteClients.Remove(id);
         }
 
-        public void RemoveHttpClient(ISocketClient client)
+        public void RemoveRemoteClient(ISocketClient client)
         {
-            RemoveHttpClient(client.Id);
+            RemoveRemoteClient(client.Id);
         }
 
         #region IDisposable Support
@@ -246,16 +246,16 @@ namespace Shark.Net
                 if (disposing)
                 {
                     // dispose managed state (managed objects).
-                    foreach (var http in HttpClients)
+                    foreach (var http in RemoteClients)
                     {
                         http.Value.Dispose();
                     }
-                    HttpClients.Clear();
+                    RemoteClients.Clear();
                     _timer.Dispose();
                     _writeSemaphore.Dispose();
                     _timer = null;
                     _writeSemaphore = null;
-                    HttpClients = null;
+                    RemoteClients = null;
                 }
 
                 // free unmanaged resources (unmanaged objects) and override a finalizer below.

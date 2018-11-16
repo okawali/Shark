@@ -38,8 +38,16 @@ namespace Shark.Net.Internal
 
         public override async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, Guid? id = null)
         {
-            var socket = await DefaultSocketClient.ConnectTo(endPoint, id);
-            HttpClients.Add(socket.Id, socket);
+            ISocketClient socket;
+            if (type == RemoteType.Tcp)
+            {
+                socket = await DefaultSocketClient.ConnectTo(endPoint, id);
+            }
+            else
+            {
+                socket = await UdpSocketClient.ConnectTo(endPoint, id);
+            }
+            RemoteClients.Add(socket.Id, socket);
             return socket;
         }
 

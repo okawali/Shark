@@ -42,10 +42,10 @@ namespace Shark
                                 var ids = JsonConvert.DeserializeObject<List<Guid>>(Encoding.UTF8.GetString(block.Data));
                                 foreach (var id in ids)
                                 {
-                                    if (client.HttpClients.TryGetValue(id, out var item))
+                                    if (client.RemoteClients.TryGetValue(id, out var item))
                                     {
                                         item.Dispose();
-                                        client.HttpClients.Remove(item.Id);
+                                        client.RemoteClients.Remove(item.Id);
                                         item.Logger.LogDebug("Remote request disconnect {0}", id);
                                     }
                                 }
@@ -112,7 +112,7 @@ namespace Shark
                 if (http != null)
                 {
                     http.Dispose();
-                    client.HttpClients.Remove(http.Id);
+                    client.RemoteClients.Remove(http.Id);
                 }
             }
 
@@ -123,7 +123,7 @@ namespace Shark
                 await client.WriteBlock(resp);
                 if (resp.Type == BlockType.CONNECTED)
                 {
-                    client.RunHttpLoop(http);
+                    client.RunRemoteLoop(http);
                 }
             }
             catch (Exception e)
@@ -136,7 +136,7 @@ namespace Shark
 
         private static async Task ProcessData(this ISharkClient client, BlockData block)
         {
-            if (client.HttpClients.TryGetValue(block.Id, out var http))
+            if (client.RemoteClients.TryGetValue(block.Id, out var http))
             {
                 try
                 {
@@ -147,12 +147,12 @@ namespace Shark
                     client.Logger.LogError("Http client errored closed, {0}", http.Id);
                     client.DisconnectQueue.Enqueue(http.Id);
                     http.Dispose();
-                    client.RemoveHttpClient(http);
+                    client.RemoveRemoteClient(http);
                 }
             }
         }
 
-        private static void RunHttpLoop(this ISharkClient client, ISocketClient socketClient)
+        private static void RunRemoteLoop(this ISharkClient client, ISocketClient socketClient)
         {
             var task = Task.Factory.StartNew(async () =>
             {
@@ -184,7 +184,7 @@ namespace Shark
                 }
                 client.DisconnectQueue.Enqueue(socketClient.Id);
                 socketClient.Dispose();
-                client.RemoveHttpClient(socketClient);
+                client.RemoveRemoteClient(socketClient);
             })
             .Unwrap();
         }
