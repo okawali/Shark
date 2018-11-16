@@ -19,7 +19,7 @@ namespace Shark.Net
         public Guid Id { get; private set; }
         public ISharkServer Server { get; private set; }
         public ICryptoHelper CryptoHelper { get; private set; }
-        public IDictionary<Guid, ISocketClient> HttpClients { get; private set; }
+        public IDictionary<Guid, ISocketClient> RemoteClients { get; private set; }
         public ConcurrentQueue<Guid> DisconnectQueue { get; private set; }
         public bool CanRead { get; protected set; }
         public abstract ILogger Logger { get; }
@@ -34,7 +34,7 @@ namespace Shark.Net
         {
             Id = Guid.NewGuid();
             Server = server;
-            HttpClients = new ConcurrentDictionary<Guid, ISocketClient>();
+            RemoteClients = new ConcurrentDictionary<Guid, ISocketClient>();
             CanRead = true;
             _writeSemaphore = new SemaphoreSlim(1, 1);
             DisconnectQueue = new ConcurrentQueue<Guid>();
@@ -198,16 +198,16 @@ namespace Shark.Net
         }
 
 
-        public virtual Task<ISocketClient> ConnectTo(IPAddress address, int port, Guid? id = null)
+        public virtual Task<ISocketClient> ConnectTo(IPAddress address, int port, RemoteType type = RemoteType.Tcp, Guid? id = null)
         {
-            return ConnectTo(new IPEndPoint(address, port), id);
+            return ConnectTo(new IPEndPoint(address, port), type, id);
         }
 
-        public virtual async Task<ISocketClient> ConnectTo(string address, int port, Guid? id = null)
+        public virtual async Task<ISocketClient> ConnectTo(string address, int port, RemoteType type = RemoteType.Tcp, Guid? id = null)
         {
             if (IPAddress.TryParse(address, out var ip))
             {
-                return await ConnectTo(ip, port, id);
+                return await ConnectTo(ip, port, type, id);
             }
             else
             {
@@ -216,26 +216,26 @@ namespace Shark.Net
                 {
                     try
                     {
-                        return await ConnectTo(addr, port, id);
+                        return await ConnectTo(addr, port, type, id);
                     }
                     catch (Exception e)
                     {
                         Logger.LogWarning(e, $"Failed to connected to address {addr}, trying next");
                     }
                 }
-                throw new ArgumentException($"Address {address} cannot connect", nameof(address));
+                throw new ArgumentException($"Address {address}:{port}/{type} cannot connect", nameof(address));
             }
         }
 
 
-        public void RemoveHttpClient(Guid id)
+        public void RemoveRemoteClient(Guid id)
         {
-            HttpClients.Remove(id);
+            RemoteClients.Remove(id);
         }
 
-        public void RemoveHttpClient(ISocketClient client)
+        public void RemoveRemoteClient(ISocketClient client)
         {
-            RemoveHttpClient(client.Id);
+            RemoveRemoteClient(client.Id);
         }
 
         #region IDisposable Support
@@ -246,16 +246,16 @@ namespace Shark.Net
                 if (disposing)
                 {
                     // dispose managed state (managed objects).
-                    foreach (var http in HttpClients)
+                    foreach (var http in RemoteClients)
                     {
                         http.Value.Dispose();
                     }
-                    HttpClients.Clear();
+                    RemoteClients.Clear();
                     _timer.Dispose();
                     _writeSemaphore.Dispose();
                     _timer = null;
                     _writeSemaphore = null;
-                    HttpClients = null;
+                    RemoteClients = null;
                 }
 
                 // free unmanaged resources (unmanaged objects) and override a finalizer below.
@@ -278,7 +278,7 @@ namespace Shark.Net
 
         public abstract Task<int> ReadAsync(byte[] buffer, int offset, int count);
         public abstract Task WriteAsync(byte[] buffer, int offset, int count);
-        public abstract Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null);
+        public abstract Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, Guid? id = null);
         public abstract Task FlushAsync();
     }
 }
