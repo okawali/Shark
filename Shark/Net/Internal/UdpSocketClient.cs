@@ -1,12 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
 using Shark.Logging;
 using System;
-using System.Buffers;
-using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
-using static Shark.Constants.PipeConstants;
+using System.Collections.Concurrent;
+using Shark.Data;
 
 namespace Shark.Net.Internal
 {
@@ -31,8 +30,7 @@ namespace Shark.Net.Internal
         private ILogger _logger;
         private readonly object _syncRoot;
         private readonly UdpClient _udp;
-        private readonly byte[] _writeBuffer;
-        private readonly Pipe _pipe;
+        private readonly ConcurrentDictionary<IPEndPoint, UdpAddressData> _endPointMap;
 
         public UdpSocketClient(UdpClient udp, Guid? id = null)
         {
@@ -47,45 +45,9 @@ namespace Shark.Net.Internal
                 Id = Guid.NewGuid();
             }
             _syncRoot = new object();
-            _writeBuffer = new byte[1500];
-            _pipe = new Pipe(DefaultPipeOptions);
+            _endPointMap = new ConcurrentDictionary<IPEndPoint, UdpAddressData>();
         }
 
-        protected async void StartRead()
-        {
-            var writer = _pipe.Writer;
-            try
-            {
-                while (true)
-                {
-                    var memory = writer.GetMemory(BUFFER_SIZE);
-                    var received = await _udp.ReceiveAsync();
-                    var readed = received.Buffer.Length;
-                    if (readed == 0)
-                    {
-                        break;
-                    }
-                    received.Buffer.CopyTo(memory);
-
-                    writer.Advance(readed);
-
-                    var flushResult = await writer.FlushAsync();
-
-                    if (flushResult.IsCompleted)
-                    {
-                        break;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Remote read failed");
-            }
-            finally
-            {
-                writer.Complete();
-            }
-        }
 
         public Task FlushAsync()
         {
@@ -94,32 +56,12 @@ namespace Shark.Net.Internal
 
         public async Task<int> ReadAsync(byte[] buffer, int offset, int count)
         {
-            var reader = _pipe.Reader;
-            var readed = await reader.ReadAsync();
-            var len = (int)Math.Min(readed.Buffer.Length, count);
-            var used = readed.Buffer.Slice(0, len);
-            if (used.Length == 0)
-            {
-                if (readed.IsCompleted)
-                {
-                    reader.Complete();
-                }
-            }
-
-            used.CopyTo(new Span<byte>(buffer, offset, count));
-            reader.AdvanceTo(used.End);
-
-            return len;
+            var result = await _udp.ReceiveAsync();
+            
         }
 
         public async Task WriteAsync(byte[] buffer, int offset, int count)
         {
-            var sended = 0;
-            while (sended < count)
-            {
-                Buffer.BlockCopy(buffer, offset, _writeBuffer, 0, count - sended);
-                sended += await _udp.SendAsync(_writeBuffer, count - sended);
-            }
         }
 
         #region IDisposable Support
@@ -150,19 +92,8 @@ namespace Shark.Net.Internal
 
         public static Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null)
         {
-            var udp = new UdpClient(AddressFamily.InterNetworkV6);
-            udp.Client.DualMode = true;
-            try
-            {
-                udp.Connect(endPoint);
-            }
-            catch (Exception)
-            {
-                udp.Dispose();
-                throw;
-            }
+            var udp = new UdpClient(0, AddressFamily.InterNetworkV6);
             var socketClient = new UdpSocketClient(udp, id);
-            socketClient.StartRead();
 
             return Task.FromResult<ISocketClient>(socketClient);
         }

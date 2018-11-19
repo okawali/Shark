@@ -176,11 +176,11 @@ namespace Shark
                         block.BodyCrc32 = block.ComputeCrc();
                         await client.WriteBlock(block);
                     }
-                    socketClient.Logger.LogInformation("http closed {0}", socketClient.Id);
+                    socketClient.Logger.LogInformation("Remote closed {0}", socketClient.Id);
                 }
                 catch (Exception)
                 {
-                    client.Logger.LogError("Http client errored closed, {0}", socketClient.Id);
+                    client.Logger.LogError("Remote client errored closed, {0}", socketClient.Id);
                 }
                 client.DisconnectQueue.Enqueue(socketClient.Id);
                 socketClient.Dispose();

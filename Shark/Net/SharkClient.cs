@@ -205,6 +205,12 @@ namespace Shark.Net
 
         public virtual async Task<ISocketClient> ConnectTo(string address, int port, RemoteType type = RemoteType.Tcp, Guid? id = null)
         {
+            if (type == RemoteType.Udp)
+            {
+                // ignore the configuration
+                return await ConnectTo(IPAddress.Any, 0, type, id);
+            }
+
             if (IPAddress.TryParse(address, out var ip))
             {
                 return await ConnectTo(ip, port, type, id);
