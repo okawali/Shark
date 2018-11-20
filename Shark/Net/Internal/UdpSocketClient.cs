@@ -98,7 +98,14 @@ namespace Shark.Net.Internal
                 }
                 else
                 {
-                    address = (await Dns.GetHostAddressesAsync(packData.Remote.Address))[0];
+                    foreach(var addr in await Dns.GetHostAddressesAsync(packData.Remote.Address))
+                    {
+                        if (addr.AddressFamily == AddressFamily.InterNetwork)
+                        {
+                            address = addr;
+                            break;
+                        }
+                    }
                     endPoint = new IPEndPoint(address, packData.Remote.Port);
                 }
                 _addressMap.TryAdd(packData.Remote, endPoint);
@@ -136,11 +143,7 @@ namespace Shark.Net.Internal
 
         public static Task<ISocketClient> ConnectTo(IPEndPoint endPoint, Guid? id = null)
         {
-            var udp = new UdpClient(AddressFamily.InterNetworkV6);
-
-            udp.Client.DualMode = true;
-            udp.Client.Bind(new IPEndPoint(IPAddress.IPv6Any, 0));
-
+            var udp = new UdpClient(0, AddressFamily.InterNetwork);
             var socketClient = new UdpSocketClient(udp, id);
 
             return Task.FromResult<ISocketClient>(socketClient);
