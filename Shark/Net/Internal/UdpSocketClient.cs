@@ -59,7 +59,15 @@ namespace Shark.Net.Internal
 
         public async Task<int> ReadAsync(byte[] buffer, int offset, int count)
         {
-            var result = await _udp.ReceiveAsync();
+            var readTask = _udp.ReceiveAsync();
+            var complete = await Task.WhenAny(readTask, Task.Delay(TimeSpan.FromSeconds(30)));
+             
+            if (complete != readTask)
+            {
+                return 0;
+            }
+
+            var result = readTask.Result ;
             if (_endPointMap.TryGetValue(result.RemoteEndPoint, out var remote))
             {
                 //
