@@ -64,6 +64,7 @@ namespace Shark.Net.Internal
              
             if (complete != readTask)
             {
+                Logger.LogWarning("Udp receive timeout, {0}", Id);
                 return 0;
             }
 
