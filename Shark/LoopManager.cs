@@ -92,7 +92,7 @@ namespace Shark
 
         private static async Task ProcessConnect(this ISharkClient client, BlockData block, bool isFastConnect = false)
         {
-            ISocketClient http = null;
+            ISocketClient remote = null;
             BlockData resp = new BlockData() { Type = BlockType.CONNECTED, Id = block.Id };
             if (isFastConnect)
             {
@@ -102,17 +102,17 @@ namespace Shark
             {
                 client.Logger.LogInformation("Process connect {0}", block.Id);
                 var host = JsonConvert.DeserializeObject<HostData>(Encoding.UTF8.GetString(block.Data));
-                http = await client.ConnectTo(host.Address, host.Port, host.Type, block.Id);
+                remote = await client.ConnectTo(host.Address, host.Port, host.Type, block.Id);
                 client.Logger.LogInformation("Connected {0}", block.Id);
             }
             catch (Exception)
             {
                 client.Logger.LogError("Connect failed {0}", block.Id);
                 resp.Type = BlockType.CONNECT_FAILED;
-                if (http != null)
+                if (remote != null)
                 {
-                    http.Dispose();
-                    client.RemoteClients.Remove(http.Id);
+                    remote.Dispose();
+                    client.RemoteClients.Remove(remote.Id);
                 }
             }
 
@@ -123,7 +123,7 @@ namespace Shark
                 await client.WriteBlock(resp);
                 if (resp.Type == BlockType.CONNECTED)
                 {
-                    client.RunRemoteLoop(http);
+                    client.RunRemoteLoop(remote);
                 }
             }
             catch (Exception e)
