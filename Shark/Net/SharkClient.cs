@@ -129,7 +129,7 @@ namespace Shark.Net
             if (!valid)
             {
                 block.Type = BlockType.INVALID;
-                throw new SharkException("Invalid Header");
+                throw new SharkException("Parse block failed, header cannot be parsed!");
             }
             return block;
         }
