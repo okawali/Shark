@@ -42,10 +42,10 @@ namespace Shark
                                 var ids = JsonConvert.DeserializeObject<List<Guid>>(Encoding.UTF8.GetString(block.Data));
                                 foreach (var id in ids)
                                 {
-                                    if (client.HttpClients.TryGetValue(id, out var item))
+                                    if (client.RemoteClients.TryGetValue(id, out var item))
                                     {
                                         item.Dispose();
-                                        client.HttpClients.Remove(item.Id);
+                                        client.RemoteClients.Remove(item.Id);
                                         item.Logger.LogDebug("Remote request disconnect {0}", id);
                                     }
                                 }
@@ -92,7 +92,7 @@ namespace Shark
 
         private static async Task ProcessConnect(this ISharkClient client, BlockData block, bool isFastConnect = false)
         {
-            ISocketClient http = null;
+            ISocketClient remote = null;
             BlockData resp = new BlockData() { Type = BlockType.CONNECTED, Id = block.Id };
             if (isFastConnect)
             {
@@ -102,17 +102,17 @@ namespace Shark
             {
                 client.Logger.LogInformation("Process connect {0}", block.Id);
                 var host = JsonConvert.DeserializeObject<HostData>(Encoding.UTF8.GetString(block.Data));
-                http = await client.ConnectTo(host.Address, host.Port, block.Id);
+                remote = await client.ConnectTo(host.Address, host.Port, host.Type, block.Id);
                 client.Logger.LogInformation("Connected {0}", block.Id);
             }
             catch (Exception)
             {
                 client.Logger.LogError("Connect failed {0}", block.Id);
                 resp.Type = BlockType.CONNECT_FAILED;
-                if (http != null)
+                if (remote != null)
                 {
-                    http.Dispose();
-                    client.HttpClients.Remove(http.Id);
+                    remote.Dispose();
+                    client.RemoteClients.Remove(remote.Id);
                 }
             }
 
@@ -123,7 +123,7 @@ namespace Shark
                 await client.WriteBlock(resp);
                 if (resp.Type == BlockType.CONNECTED)
                 {
-                    client.RunHttpLoop(http);
+                    client.RunRemoteLoop(remote);
                 }
             }
             catch (Exception e)
@@ -136,7 +136,7 @@ namespace Shark
 
         private static async Task ProcessData(this ISharkClient client, BlockData block)
         {
-            if (client.HttpClients.TryGetValue(block.Id, out var http))
+            if (client.RemoteClients.TryGetValue(block.Id, out var http))
             {
                 try
                 {
@@ -147,12 +147,12 @@ namespace Shark
                     client.Logger.LogError("Http client errored closed, {0}", http.Id);
                     client.DisconnectQueue.Enqueue(http.Id);
                     http.Dispose();
-                    client.RemoveHttpClient(http);
+                    client.RemoveRemoteClient(http);
                 }
             }
         }
 
-        private static void RunHttpLoop(this ISharkClient client, ISocketClient socketClient)
+        private static void RunRemoteLoop(this ISharkClient client, ISocketClient socketClient)
         {
             var task = Task.Factory.StartNew(async () =>
             {
@@ -176,15 +176,15 @@ namespace Shark
                         block.BodyCrc32 = block.ComputeCrc();
                         await client.WriteBlock(block);
                     }
-                    socketClient.Logger.LogInformation("http closed {0}", socketClient.Id);
+                    socketClient.Logger.LogInformation("Remote closed {0}", socketClient.Id);
                 }
                 catch (Exception)
                 {
-                    client.Logger.LogError("Http client errored closed, {0}", socketClient.Id);
+                    client.Logger.LogError("Remote client errored closed, {0}", socketClient.Id);
                 }
                 client.DisconnectQueue.Enqueue(socketClient.Id);
                 socketClient.Dispose();
-                client.RemoveHttpClient(socketClient);
+                client.RemoveRemoteClient(socketClient);
             })
             .Unwrap();
         }
