@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Shark.Data;
-using Shark.Logging;
+using Shark.DependencyInjection;
 using System;
 using System.Collections.Concurrent;
 using System.Net;
@@ -19,7 +19,7 @@ namespace Shark.Net.Internal
             {
                 if (_logger == null)
                 {
-                    _logger = LoggerManager.LoggerFactory.CreateLogger<UdpSocketClient>();
+                    _logger = ServicesManager.GetLogger<UdpSocketClient>();
                 }
                 return _logger;
             }

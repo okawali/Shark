@@ -1,16 +1,18 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Mono.Options;
 using Shark.Constants;
 using Shark.Data;
+using Shark.DependencyInjection;
 using Shark.Net;
 using System;
 using System.Net.Sockets;
 
 namespace Shark
 {
-    class Program
+    internal class Program
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             var address = "127.0.0.1";
             var port = 12306;
@@ -33,13 +35,19 @@ namespace Shark
                 }
                 else
                 {
+                    ServicesManager.ConfigureServices(collection =>
+                    {
+                        collection.AddLogging(builder =>
+                        {
+                            builder.AddConsole();
+#if DEBUG
+                            builder.SetMinimumLevel(LogLevel.Debug);
+#endif
+                        });
+                    });
+
                     ISharkServer server = SharkServer.Create();
                     server
-#if DEBUG
-                        .ConfigureLogger(factory => factory.AddConsole(LogLevel.Debug))
-#else
-                        .ConfigureLogger(factory => factory.AddConsole())
-#endif
                         .OnClientConnected(async client =>
                         {
                             try

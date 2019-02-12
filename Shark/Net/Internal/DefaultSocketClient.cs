@@ -1,5 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
-using Shark.Logging;
+using Shark.DependencyInjection;
 using System;
 using System.Net;
 using System.Net.Sockets;
@@ -19,7 +19,7 @@ namespace Shark.Net.Internal
             {
                 if (_logger == null)
                 {
-                    _logger = LoggerManager.LoggerFactory.CreateLogger<DefaultSocketClient>();
+                    _logger = ServicesManager.GetLogger<DefaultSocketClient>();
                 }
                 return _logger;
             }

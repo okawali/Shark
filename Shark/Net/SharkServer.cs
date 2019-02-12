@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using Shark.Logging;
 using Shark.Net.Internal;
 using System;
 using System.Collections.Generic;
@@ -17,6 +16,7 @@ namespace Shark.Net
         public event Action<ISharkClient> OnConnected;
 
         protected Dictionary<Guid, ISharkClient> _clients = new Dictionary<Guid, ISharkClient>();
+
         private bool _disposed = false;
 
         protected SharkServer()
@@ -28,13 +28,6 @@ namespace Shark.Net
             OnConnected += onConnected;
             return this;
         }
-
-        public ISharkServer ConfigureLogger(Action<ILoggerFactory> configure)
-        {
-            configure?.Invoke(LoggerManager.LoggerFactory);
-            return this;
-        }
-
 
         public ISharkServer Bind(IPAddress address, int port)
         {

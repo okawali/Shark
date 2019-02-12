@@ -1,10 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
 using Shark.Data;
-using Shark.Logging;
 using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using Shark.DependencyInjection;
 
 namespace Shark.Net.Internal
 {
@@ -17,7 +17,7 @@ namespace Shark.Net.Internal
             {
                 if (_logger == null)
                 {
-                    _logger = LoggerManager.LoggerFactory.CreateLogger<DefaultSharkClient>();
+                    _logger = ServicesManager.GetLogger<DefaultSharkClient>();
                 }
                 return _logger;
             }

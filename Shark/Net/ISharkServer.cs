@@ -14,7 +14,6 @@ namespace Shark.Net
         event Action<ISharkClient> OnConnected;
         ILogger Logger { get; }
 
-        ISharkServer ConfigureLogger(Action<ILoggerFactory> configure);
         ISharkServer Bind(IPAddress address, int port);
         ISharkServer Bind(string address, int port);
         ISharkServer Bind(IPEndPoint endPoint);
