@@ -1,0 +1,458 @@
+﻿using Microsoft.Extensions.Logging;
+using Shark.Client.Proxy.Socks5.Constants;
+using Shark.Constants;
+using Shark.Data;
+using Shark.Net;
+using Shark.Net.Client;
+using System;
+using System.Buffers;
+using System.IO.Pipelines;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading.Tasks;
+using static Shark.Client.Proxy.PipeConstants;
+
+namespace Shark.Client.Proxy.Socks5
+{
+    internal class Socks5Client : ProxyClient
+    {
+        private TcpClient _client;
+        private NetworkStream _stream;
+        private Pipe _pipe;
+        private Socks5Request _request;
+        private bool _socksFailed;
+        private UdpClient _udp;
+        private HostData _target;
+        private readonly byte[] _udpBuffer;
+        private IPEndPoint _lastEndpoint;
+
+        public override ILogger Logger { get; }
+
+        public override IServiceProvider ServiceProvider { get; }
+
+        public override event Action<ISocketClient> RemoteDisconnected;
+
+        public Socks5Client(TcpClient tcp, IProxyServer server, ISharkClient shark, ILogger<Socks5Client> logger, IServiceProvider servicdeProvider) : base(server, shark)
+        {
+            Logger = logger;
+            ServiceProvider = servicdeProvider;
+            _client = tcp;
+            _stream = _client.GetStream();
+            _pipe = new Pipe(DefaultPipeOptions);
+            _socksFailed = false;
+            _udpBuffer = new byte[1500];
+            _lastEndpoint = new IPEndPoint(0, 0);
+        }
+
+        public override async Task<bool> ProcessSharkData(BlockData block)
+        {
+            if (block.Type == BlockType.CONNECTED)
+            {
+                Socks5Response resp;
+                if (_target.Type == RemoteType.Tcp)
+                {
+                    resp = Socks5Response.FromRequest(_request, SocksResponse.SUCCESS);
+                    var data = resp.ToBytes();
+
+                    await WriteAsync(data, 0, data.Length);
+                    await FlushAsync();
+                    Logger.LogInformation($"{_target} connected, {Id}");
+
+#pragma warning disable CS4014
+                    ProcessData();
+#pragma warning restore CS4014
+                }
+                else if (_target.Type == RemoteType.Udp)
+                {
+                    resp = Socks5Response.FromRequest(_request, _udp.Client.LocalEndPoint as IPEndPoint);
+                    var data = resp.ToBytes();
+                    await WriteAsync(data, 0, data.Length);
+
+                    StopTcp();
+                    _pipe.Reader.Complete();
+                    Logger.LogInformation($"Udp relay started, {Id}");
+                }
+            }
+            else if (block.Type == BlockType.CONNECT_FAILED)
+            {
+                var resp = Socks5Response.FromRequest(_request, SocksResponse.CANNOT_CONNECT);
+                var data = resp.ToBytes();
+                await WriteAsync(data, 0, data.Length);
+                await FlushAsync();
+
+                _pipe.Reader.Complete();
+
+                Logger.LogWarning($"Connect to {_target} failed, {Id}");
+
+                return false;
+            }
+            else if (block.Type == BlockType.DATA)
+            {
+                if (_target.IsUdp)
+                {
+                    Buffer.BlockCopy(block.Data, 0, _udpBuffer, 3, block.Data.Length);
+                    _udpBuffer[0] = _udpBuffer[1] = _udpBuffer[2] = 0;
+                    await _udp.SendAsync(_udpBuffer, block.Data.Length + 3, _lastEndpoint);
+                }
+                else
+                {
+                    await WriteAsync(block.Data, 0, block.Data.Length);
+                    await FlushAsync();
+                }
+            }
+
+            return !_socksFailed;
+        }
+
+        public override async Task<HostData> StartAndProcessRequest()
+        {
+            ReadFromStream();
+
+            var header = await ReadAuthHeader();
+
+            if (Socks.VERSION != header[0])
+            {
+                throw new InvalidOperationException("Socks version not matched");
+            }
+
+            var methods = await ReadAuthMethods(header[1]);
+            var valid = false;
+
+            foreach (var method in methods)
+            {
+                if (method == SocksAuthType.NO_AUTH)
+                {
+                    valid = true;
+                }
+            }
+
+            byte auth = valid ? SocksAuthType.NO_AUTH : SocksAuthType.UNAVALIABLE;
+
+            await WriteAsync(new byte[] { Socks.VERSION, auth }, 0, 2);
+            await FlushAsync();
+
+            if (valid)
+            {
+                return await ProcessRequest();
+            }
+            else
+            {
+                Logger.LogError("No valid auth method");
+                throw new SocksException("Socks auth failed");
+            }
+        }
+
+        private async Task<HostData> ProcessRequest()
+        {
+            _request = await ReadRequest();
+
+            if (_request.Command == SocksCommand.CONNECT)
+            {
+                _target = new HostData() { Address = _request.Remote.Address, Port = _request.Remote.Port };
+                Logger.LogInformation($"Connecting to {_target}, {Id}");
+                return _target;
+            }
+            else if (_request.Command == SocksCommand.UDP)
+            {
+                Logger.LogInformation($"Configing udp relay, {Id}");
+                _target = new HostData()
+                {
+                    Address = _request.Remote.Address,
+                    Port = _request.Remote.Port,
+                    Type = RemoteType.Udp
+                };
+                BindUdp(_target);
+                return _target;
+            }
+
+            var resp = Socks5Response.FromRequest(_request, SocksResponse.CANNOT_CONNECT);
+            var data = resp.ToBytes();
+
+            await WriteAsync(data, 0, data.Length);
+            await FlushAsync();
+
+            _pipe.Reader.Complete();
+
+            throw new SocksException("Command not supported");
+        }
+
+        private void BindUdp(HostData hostData)
+        {
+            _udp = new UdpClient(0);
+            Logger.LogInformation($"Binded udp on {_udp.Client.LocalEndPoint}, starting udp relay, {Id}");
+#pragma warning disable CS4014
+            StartUdpRelay();
+#pragma warning restore CS4014
+        }
+
+        protected async Task<Socks5Request> ReadRequest()
+        {
+            var header = await ReadBytes(5);
+            byte[] host;
+            if (header[3] == SocksAddressType.IPV4)
+            {
+                host = await ReadBytes(5);
+            }
+            else if (header[3] == SocksAddressType.IPV6)
+            {
+                host = await ReadBytes(17);
+            }
+            else
+            {
+                host = await ReadBytes(header[4] + 2);
+            }
+            return Socks5Request.FormBytes(header.Concat(host).ToArray());
+        }
+
+        protected Task<byte[]> ReadAuthHeader()
+        {
+            return ReadBytes(2);
+        }
+
+        protected Task<byte[]> ReadAuthMethods(int count)
+        {
+            return ReadBytes(count);
+        }
+
+        protected async Task<byte[]> ReadBytes(int count)
+        {
+            var reader = _pipe.Reader;
+            var readed = await reader.ReadAsync();
+            while (readed.Buffer.Length < count)
+            {
+                reader.AdvanceTo(readed.Buffer.Start);
+
+                // check read result status
+                if (readed.IsCompleted)
+                {
+                    reader.Complete();
+                    throw new SocksException("No enougth data to read");
+                }
+
+                readed = await reader.ReadAsync();
+            }
+
+            var buffer = readed.Buffer;
+            var result = buffer.Slice(0, count);
+            var resutBytes = result.ToArray();
+
+            reader.AdvanceTo(result.End);
+
+            return resutBytes;
+        }
+
+        private void CloseConnetion()
+        {
+            if (!(_target?.IsUdp ?? false))
+            {
+                try
+                {
+                    _client.Client.Shutdown(SocketShutdown.Send);
+                }
+                catch (Exception)
+                {
+                    Logger.LogWarning("Socket errored before shutdown and disconnect");
+                }
+            }
+            Logger.LogInformation("Socks no data to read, closed {0}", Id);
+            RemoteDisconnected?.Invoke(this);
+        }
+
+        private async void ReadFromStream()
+        {
+            var writer = _pipe.Writer;
+            try
+            {
+                while (true)
+                {
+                    var memory = writer.GetMemory(BUFFER_SIZE);
+                    int readed = await _stream.ReadAsync(memory);
+                    if (readed == 0)
+                    {
+                        break;
+                    }
+
+                    writer.Advance(readed);
+
+                    var flushResult = await writer.FlushAsync();
+
+                    if (flushResult.IsCompleted)
+                    {
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                if (!(_target?.IsUdp ?? false))
+                {
+                    Logger.LogError(ex, "Socks read failed");
+                }
+            }
+            finally
+            {
+                writer.Complete();
+            }
+
+        }
+
+        private Task ProcessData()
+        {
+            var reader = _pipe.Reader;
+            return Task.Factory.StartNew(async () =>
+            {
+                try
+                {
+                    int dataNumber = 0;
+                    while (true)
+                    {
+                        var readed = await reader.ReadAsync();
+                        var buffer = readed.Buffer;
+                        var len = Math.Min(buffer.Length, BUFFER_SIZE);
+                        var used = buffer.Slice(0, len);
+                        buffer = buffer.Slice(len);
+
+                        if (used.Length == 0)
+                        {
+                            if (readed.IsCompleted)
+                            {
+                                break;
+                            }
+
+                            continue;
+                        }
+
+                        var block = new BlockData() { Id = Id, BlockNumber = dataNumber++, Type = BlockType.DATA };
+                        var copyedBuffer = used.ToArray();
+
+                        reader.AdvanceTo(used.End);
+
+                        block.Data = copyedBuffer;
+                        Shark.EncryptBlock(ref block);
+                        block.BodyCrc32 = block.ComputeCrc();
+                        await Shark.WriteBlock(block);
+                    }
+                }
+                catch (Exception e)
+                {
+                    Logger.LogError(e, "Socks errored");
+                }
+
+                CloseConnetion();
+                reader.Complete();
+                _socksFailed = true;
+            }).Unwrap();
+        }
+
+        private Task StartUdpRelay()
+        {
+            return Task.Factory.StartNew(async () =>
+            {
+                try
+                {
+                    int dataNumber = 0;
+                    while (true)
+                    {
+                        var readTask = _udp.ReceiveAsync();
+                        var complete = await Task.WhenAny(readTask, Task.Delay(TimeSpan.FromSeconds(30)));
+
+                        if (complete != readTask)
+                        {
+                            Logger.LogWarning("Udp relay receive timeout, {0}", Id);
+                            break;
+                        }
+
+                        var readed = readTask.Result;
+                        var remote = readed.RemoteEndPoint;
+                        if (readed.Buffer.Length == 0)
+                        {
+                            break;
+                        }
+                        var requset = Socks5UdpRelayRequest.Parse(readed.Buffer);
+                        if (requset.Fraged)
+                        {
+                            // drop fraged datas
+                            continue;
+                        }
+
+                        // TODO: address check!
+                        if (_target.Port != 0 && remote.Port != _target.Port)
+                        {
+                            // drop not matched source datas by port
+                            continue;
+                        }
+
+                        _lastEndpoint = remote;
+                        var block = new BlockData() { Id = Id, BlockNumber = dataNumber++, Type = BlockType.DATA };
+                        block.Data = requset.Data.ToBytes();
+                        Shark.EncryptBlock(ref block);
+                        block.BodyCrc32 = block.ComputeCrc();
+                        await Shark.WriteBlock(block);
+                    }
+                }
+                catch (Exception e)
+                {
+                    Logger.LogError(e, "Socks udp relay errored");
+                }
+                CloseConnetion();
+                _socksFailed = true;
+            }).Unwrap();
+        }
+
+        private void StopTcp()
+        {
+            try
+            {
+                _client.Client.Shutdown(SocketShutdown.Both);
+                _client.Client.Disconnect(false);
+            }
+            catch (Exception)
+            {
+                if (!(_target?.IsUdp ?? false))
+                {
+                    Logger.LogWarning("Socket errored before shutdown and disconnect");
+                }
+            }
+            _stream.Dispose();
+            _client.Dispose();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (!Disposed)
+            {
+                if (disposing)
+                {
+                    StopTcp();
+                    _udp?.Dispose();
+                    RemoteDisconnected = null;
+                }
+                base.Dispose(disposing);
+            }
+        }
+
+        public override async Task<int> ReadAsync(byte[] buffer, int offset, int count)
+        {
+            var read =  await _pipe.Reader.ReadAsync();
+            var readed = Math.Min(read.Buffer.Length, count);
+            var data = read.Buffer.Slice(0, readed);
+
+            data.CopyTo(new Span<byte>(buffer, offset, count));
+
+            _pipe.Reader.AdvanceTo(data.End);
+
+            return (int)readed;
+        }
+
+        public override Task WriteAsync(byte[] buffer, int offset, int count)
+        {
+            return _stream.WriteAsync(buffer, offset, count);
+        }
+
+        public override Task FlushAsync()
+        {
+            return _stream.FlushAsync();
+        }
+    }
+}
