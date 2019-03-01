@@ -5,9 +5,9 @@ VisualStudioVersion = 15.0.26730.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shark.Server", "Shark.Server\Shark.Server.csproj", "{08971640-D508-4CA1-BC0E-5A2BB094403A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shark.Commons", "Shark.Commons\Shark.Commons.csproj", "{152CAA10-E38A-4362-BC02-231AE7EEB5E4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shark.Commons", "Shark.Commons\Shark.Commons.csproj", "{152CAA10-E38A-4362-BC02-231AE7EEB5E4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shark.Client", "Shark.Client\Shark.Client.csproj", "{5242BF7A-A713-43B6-A38E-5912A58BC0F6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shark.Client", "Shark.Client\Shark.Client.csproj", "{5242BF7A-A713-43B6-A38E-5912A58BC0F6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
