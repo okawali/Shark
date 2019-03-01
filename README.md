@@ -8,8 +8,8 @@ shark-server -h
 -p, --port=VALUE           bind port default=12306
 -b, --backlog=VALUE        accept backlog default use SocketOptionName.MaxConnections
     --log-level=VALUE      log level, one of 
-						   Trace, Debug, Information, Warning, Error, Critical, None,
-						   default Information
+			   Trace, Debug, Information, Warning, Error, Critical, None,
+			   default Information
 -h, --help                 show this message and exit
 ```
 
@@ -23,8 +23,8 @@ shark -h
     --backlog=VALUE        accept backlog default use SocketOptionName.MaxConnections
     --max=VALUE            max client connection count, 0 for unlimited, default 0
     --log-level=VALUE      log level, one of 
-						   Trace, Debug, Information, Warning, Error, Critical, None,
-						   default Information
+    			   Trace, Debug, Information, Warning, Error, Critical, None,
+			   default Information
 -h, --help                 show this message and exit
 ```
 
