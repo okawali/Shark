@@ -30,7 +30,7 @@ namespace Shark.Client.Proxy.Http
         public HttpProxyClient(TcpClient tcp, IProxyServer server, ISharkClient shark, ILogger<HttpProxyClient> logger, IServiceProvider servicdeProvider) : base(server, shark)
         {
             ServiceProvider = servicdeProvider;
-            Logger = Logger;
+            Logger = logger;
             _client = tcp;
             _stream = _client.GetStream();
             _request = new HttpProxyRequest();
