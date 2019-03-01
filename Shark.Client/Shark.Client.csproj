@@ -13,7 +13,6 @@
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
 
-
   <ItemGroup>
     <ProjectReference Include="..\Shark.Commons\Shark.Commons.csproj" />
   </ItemGroup>
