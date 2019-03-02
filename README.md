@@ -1,6 +1,10 @@
 # Shark
 A proxy ng
 
+## installion
+1. download pre packaged executable from release, zip files
+1. download packed dotnet tool from release, and install use `dotnet tool` command, nupkg files 
+
 ## how to start
 ```sh
 shark-server -h

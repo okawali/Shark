@@ -9,6 +9,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shark.Commons", "Shark.Comm
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shark.Client", "Shark.Client\Shark.Client.csproj", "{5242BF7A-A713-43B6-A38E-5912A58BC0F6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shark.Client.Tool", "Shark.Client.Tool\Shark.Client.Tool.csproj", "{EAB3F679-31E6-4F29-BCB3-BD1D64C89F6F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shark.Server.Tool", "Shark.Server.Tool\Shark.Server.Tool.csproj", "{6AA59A81-6FC7-47E7-9A9D-09A53E0B0EBB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +31,14 @@ Global
 		{5242BF7A-A713-43B6-A38E-5912A58BC0F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5242BF7A-A713-43B6-A38E-5912A58BC0F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5242BF7A-A713-43B6-A38E-5912A58BC0F6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EAB3F679-31E6-4F29-BCB3-BD1D64C89F6F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EAB3F679-31E6-4F29-BCB3-BD1D64C89F6F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EAB3F679-31E6-4F29-BCB3-BD1D64C89F6F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EAB3F679-31E6-4F29-BCB3-BD1D64C89F6F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6AA59A81-6FC7-47E7-9A9D-09A53E0B0EBB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6AA59A81-6FC7-47E7-9A9D-09A53E0B0EBB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6AA59A81-6FC7-47E7-9A9D-09A53E0B0EBB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6AA59A81-6FC7-47E7-9A9D-09A53E0B0EBB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
