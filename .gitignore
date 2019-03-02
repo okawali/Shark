@@ -33,3 +33,5 @@ nuget.exe
 .settings
 *.sln.ide
 .vscode/
+*.zip
+*.nupkg

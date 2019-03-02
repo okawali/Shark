@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\Shark.Server\Shark.Server.Project.props" />
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>shark-server</ToolCommandName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shark.Server\**\*.cs" />
+    <Compile Remove="..\Shark.Server\bin\**" />
+    <Compile Remove="..\Shark.Server\obj\**" />
+  </ItemGroup>
+</Project>
