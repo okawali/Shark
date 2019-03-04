@@ -7,11 +7,15 @@
     <Copyright>Copyright 2019 (c) Norgerman.</Copyright>
     <RepositoryUrl>https://github.com/Norgerman/Shark</RepositoryUrl>
     <PackageProjectUrl>https://github.com/Norgerman/Shark</PackageProjectUrl>
-    <License>MIT</License>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\LICENSE" Pack="true" PackagePath="$(PackageLicenseFile)"/>
+  </ItemGroup>
 </Project>
