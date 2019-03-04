@@ -7,7 +7,7 @@
     <Copyright>Copyright 2019 (c) Norgerman.</Copyright>
     <RepositoryUrl>https://github.com/Norgerman/Shark</RepositoryUrl>
     <PackageProjectUrl>https://github.com/Norgerman/Shark</PackageProjectUrl>
-    <PackageLicenseUrl>https://github.com/Norgerman/Shark/blob/master/LICENSE</PackageLicenseUrl>
+    <License>MIT</License>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
