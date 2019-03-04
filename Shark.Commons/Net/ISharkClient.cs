@@ -10,28 +10,28 @@ namespace Shark.Net
 {
     public interface ISharkClient : ISocketClient
     {
-        IDictionary<Guid, ISocketClient> RemoteClients { get; }
+        IDictionary<int, ISocketClient> RemoteClients { get; }
         bool CanRead { get; }
         bool Initialized { get; }
 
-        Guid ChangeId(Guid id);
+        int ChangeId(int id);
 
-        Task<ISocketClient> ConnectTo(IPAddress address, int port, RemoteType type = RemoteType.Tcp, Guid? id = null);
-        Task<ISocketClient> ConnectTo(string address, int port, RemoteType type = RemoteType.Tcp, Guid? id = null);
-        Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, Guid? id = null);
+        Task<ISocketClient> ConnectTo(IPAddress address, int port, RemoteType type = RemoteType.Tcp, int? id = null);
+        Task<ISocketClient> ConnectTo(string address, int port, RemoteType type = RemoteType.Tcp, int? id = null);
+        Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, int? id = null);
 
         ICrypter Crypter { get; }
-        ConcurrentQueue<Guid> DisconnectQueue { get; }
+        ConcurrentQueue<int> DisconnectQueue { get; }
 
         Task<BlockData> ReadBlock();
         Task WriteBlock(BlockData block);
         Task Auth();
-        Task<BlockData> FastConnect(Guid id, HostData hostData);
-        Task ProxyTo(Guid id, HostData hostData);
+        Task<BlockData> FastConnect(int id, HostData hostData);
+        Task ProxyTo(int id, HostData hostData);
 
         void ConfigureCrypter(byte[] password);
         void EncryptBlock(ref BlockData block);
         void DecryptBlock(ref BlockData block);
-        void RemoveRemoteClient(Guid id);
+        void RemoveRemoteClient(int id);
     }
 }

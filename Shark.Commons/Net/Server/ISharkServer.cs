@@ -9,13 +9,13 @@ namespace Shark.Net.Server
     {
         IServiceProvider ServiceProvider { get; }
         bool Disposed { get; }
-        IDictionary<Guid, ISharkClient> Clients { get; }
+        IDictionary<int, ISharkClient> Clients { get; }
         event Action<ISharkClient> OnConnected;
         ILogger Logger { get; }
 
         ISharkServer OnClientConnected(Action<ISharkClient> onConnected);
         void RemoveClient(ISharkClient client);
-        void RemoveClient(Guid id);
+        void RemoveClient(int id);
         Task Start();
     }
 }

@@ -8,22 +8,20 @@ namespace Shark.Data
     [StructLayout(LayoutKind.Explicit)]
     public unsafe struct BlockData
     {
-        public const int HEADER_SIZE = 33;
+        public const int HEADER_SIZE = 17;
 
         [FieldOffset(0)]
         private fixed byte _bin[HEADER_SIZE];
         [FieldOffset(0)]
-        public Guid Id;
-        [FieldOffset(16)]
+        public int Id;
+        [FieldOffset(4)]
         public byte Type;
-        [FieldOffset(17)]
+        [FieldOffset(5)]
         public int BlockNumber;
-        [FieldOffset(21)]
+        [FieldOffset(9)]
         public uint BodyCrc32;
-        [FieldOffset(25)]
+        [FieldOffset(13)]
         public int Length;
-        [FieldOffset(29)]
-        public uint HeaderCrc32;
         [FieldOffset(HEADER_SIZE % 8 == 0 ? HEADER_SIZE : (HEADER_SIZE / 8 + 1) * 8)]
         public byte[] Data;
         public bool IsValid => Type != BlockType.INVALID;
@@ -66,18 +64,7 @@ namespace Shark.Data
 
             fixed (byte* ptr = _bin)
             {
-                Marshal.Copy((IntPtr)ptr, header, 0, HEADER_SIZE - 4);
-
-                using (var crc = new Crc32())
-                {
-                    crc.TransformFinalBlock(header, 0, HEADER_SIZE - 4);
-                    var hash = crc.Hash;
-                    Array.Reverse(hash);
-                    Buffer.BlockCopy(hash, 0, header, HEADER_SIZE - 4, 4);
-                    HeaderCrc32 = BitConverter.ToUInt32(hash, 0);
-                }
-
-                Marshal.Copy((IntPtr)(ptr + HEADER_SIZE - 4), header, HEADER_SIZE - 4, 4);
+                Marshal.Copy((IntPtr)ptr, header, 0, HEADER_SIZE);
             }
 
             return header;
@@ -99,17 +86,7 @@ namespace Shark.Data
                 Marshal.Copy(header, 0, (IntPtr)ptr, HEADER_SIZE);
             }
 
-            uint headerCheck;
-
-            using (var crc = new Crc32())
-            {
-                crc.TransformFinalBlock(header, 0, HEADER_SIZE - 4);
-                var hash = crc.Hash;
-                Array.Reverse(hash);
-                headerCheck = BitConverter.ToUInt32(hash, 0);
-            }
-
-            return headerCheck == result.HeaderCrc32;
+            return true;
         }
     }
 }

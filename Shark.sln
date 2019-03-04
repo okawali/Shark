@@ -9,9 +9,14 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shark.Commons", "Shark.Comm
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shark.Client", "Shark.Client\Shark.Client.csproj", "{5242BF7A-A713-43B6-A38E-5912A58BC0F6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shark.Client.Tool", "Shark.Client.Tool\Shark.Client.Tool.csproj", "{EAB3F679-31E6-4F29-BCB3-BD1D64C89F6F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shark.Client.Tool", "Shark.Client.Tool\Shark.Client.Tool.csproj", "{EAB3F679-31E6-4F29-BCB3-BD1D64C89F6F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shark.Server.Tool", "Shark.Server.Tool\Shark.Server.Tool.csproj", "{6AA59A81-6FC7-47E7-9A9D-09A53E0B0EBB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shark.Server.Tool", "Shark.Server.Tool\Shark.Server.Tool.csproj", "{6AA59A81-6FC7-47E7-9A9D-09A53E0B0EBB}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{D2DBDED8-8CC2-47E3-97F9-F7F8A6CCA8E2}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Build.props = Directory.Build.props
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

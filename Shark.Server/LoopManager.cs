@@ -39,7 +39,7 @@ namespace Shark.Server
 #pragma warning restore CS4014
                             else if (block.Type == BlockType.DISCONNECT)
                             {
-                                var ids = JsonConvert.DeserializeObject<List<Guid>>(Encoding.UTF8.GetString(block.Data));
+                                var ids = JsonConvert.DeserializeObject<List<int>>(Encoding.UTF8.GetString(block.Data));
                                 foreach (var id in ids)
                                 {
                                     if (client.RemoteClients.TryGetValue(id, out var item))
@@ -67,7 +67,7 @@ namespace Shark.Server
             BlockData resp = new BlockData() { Type = BlockType.CONNECTED, Id = block.Id };
             if (isFastConnect)
             {
-                resp.Data = client.Id.ToByteArray();
+                resp.Data = BitConverter.GetBytes(client.Id);
             }
             try
             {
