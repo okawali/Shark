@@ -26,8 +26,8 @@ namespace Shark.Client.Proxy
         public bool Disposed { get; private set; }
         public abstract ILogger Logger { get; }
 
-        public IDictionary<Guid, IProxyClient> Clients { get; private set; }
-        public IDictionary<Guid, ISharkClient> Sharks { get; private set; }
+        public IDictionary<int, IProxyClient> Clients { get; private set; }
+        public IDictionary<int, ISharkClient> Sharks { get; private set; }
         public int MaxCount => ProxyOptions.Value.MaxClientCount;
         public IOptions<ProxyRemoteOptions> ProxyOptions { get; }
         public HostData Remote => ProxyOptions.Value.Remote;
@@ -38,8 +38,8 @@ namespace Shark.Client.Proxy
             Disposed = false;
             ProxyOptions = options;
 
-            Sharks = new ConcurrentDictionary<Guid, ISharkClient>();
-            Clients = new ConcurrentDictionary<Guid, IProxyClient>();
+            Sharks = new ConcurrentDictionary<int, ISharkClient>();
+            Clients = new ConcurrentDictionary<int, IProxyClient>();
 
             _random = new Random();
             ServiceProvider = serviceProvider;
@@ -85,7 +85,7 @@ namespace Shark.Client.Proxy
         {
             return Task.Factory.StartNew(async () =>
             {
-                var taskMap = new Dictionary<Guid, Task<bool>>();
+                var taskMap = new Dictionary<int, Task<bool>>();
                 try
                 {
                     while (true)
@@ -95,7 +95,7 @@ namespace Shark.Client.Proxy
                         if (block.Type == BlockType.DISCONNECT)
                         {
                             var idData = Encoding.UTF8.GetString(block.Data);
-                            var ids = JsonConvert.DeserializeObject<List<Guid>>(idData);
+                            var ids = JsonConvert.DeserializeObject<List<int>>(idData);
                             Logger.LogDebug("Remote request disconnect {0}", idData);
                             foreach (var id in ids)
                             {
@@ -213,22 +213,5 @@ namespace Shark.Client.Proxy
             Dispose(false);
         }
         #endregion
-
-        //public static IProxyServer Create(ProxyProtocol protocol, int maxCount)
-        //{
-        //    IProxyServer server = null;
-        //    switch (protocol)
-        //    {
-        //        case ProxyProtocol.Socks5:
-        //            server = new Socks5Server(maxCount);
-        //            break;
-        //        case ProxyProtocol.Http:
-        //            server = new HttpProxyServer(maxCount);
-        //            break;
-        //        default:
-        //            break;
-        //    }
-        //    return server;
-        //}
     }
 }

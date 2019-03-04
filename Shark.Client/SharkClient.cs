@@ -27,9 +27,9 @@ namespace Shark.Client
         private TcpClient _tcp;
         private SemaphoreSlim _writeSemaphore;
         private NetworkStream _stream;
-        public IDictionary<Guid, ISocketClient> RemoteClients { private set; get; }
-        public ConcurrentQueue<Guid> DisconnectQueue { get; private set; }
-        public Guid Id { private set; get; }
+        public IDictionary<int, ISocketClient> RemoteClients { private set; get; }
+        public ConcurrentQueue<int> DisconnectQueue { get; private set; }
+        public int Id { private set; get; }
         public bool Initialized { get; private set; }
         public ILogger Logger { get; }
         public ICrypter Crypter { get; }
@@ -54,10 +54,10 @@ namespace Shark.Client
             tcp.Client.DualMode = true;
 
             _tcp = tcp;
-            Id = Guid.NewGuid();
+            Id = RandomIdGenerator.NewId();
             ServiceProvider = serviceProvider;
-            RemoteClients = new ConcurrentDictionary<Guid, ISocketClient>();
-            DisconnectQueue = new ConcurrentQueue<Guid>();
+            RemoteClients = new ConcurrentDictionary<int, ISocketClient>();
+            DisconnectQueue = new ConcurrentQueue<int>();
             _writeSemaphore = new SemaphoreSlim(1, 1);
             _stopInternal = new TaskCompletionSource<int>();
             _syncRoot = new object();
@@ -97,12 +97,12 @@ namespace Shark.Client
         {
             await WriteBlock(new BlockData() { Id = Id, Type = BlockType.HAND_SHAKE });
             var block = await ReadBlock();
-            if (block.Type != BlockType.HAND_SHAKE || block.Id == Guid.Empty)
+            if (block.Type != BlockType.HAND_SHAKE || block.Id == 0)
             {
                 throw new SharkException("HandShake Failed, response invalid");
             }
 
-            if (Id == Guid.Empty)
+            if (Id == 0)
             {
                 Id = block.Id;
             }
@@ -128,7 +128,7 @@ namespace Shark.Client
             Initialized = true;
         }
 
-        public async Task<BlockData> FastConnect(Guid id, HostData hostData)
+        public async Task<BlockData> FastConnect(int id, HostData hostData)
         {
             var data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(hostData));
             var password = ScryptUtil.Scrypt(Guid.NewGuid().ToString(), Guid.NewGuid().ToByteArray(), 1024, 8, 8, 16);
@@ -146,9 +146,9 @@ namespace Shark.Client
             block = await ReadBlock();
             DecryptBlock(ref block);
 
-            var resultId = new Guid(block.Data);
+            var resultId = BitConverter.ToInt32(block.Data);
 
-            if (Id == Guid.Empty)
+            if (Id == 0)
             {
                 Id = resultId;
             }
@@ -165,7 +165,7 @@ namespace Shark.Client
             return block;
         }
 
-        public async Task ProxyTo(Guid id, HostData hostData)
+        public async Task ProxyTo(int id, HostData hostData)
         {
             var hostJsonData = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(hostData));
             var block = new BlockData() { Id = id, Type = BlockType.CONNECT };
@@ -176,7 +176,7 @@ namespace Shark.Client
         }
 
 
-        public void RemoveRemoteClient(Guid id)
+        public void RemoveRemoteClient(int id)
         {
             if (RemoteClients.Remove(id))
             {
@@ -346,7 +346,7 @@ namespace Shark.Client
 
         private async void OnDisconnectTimeout(object state)
         {
-            List<Guid> ids = new List<Guid>();
+            List<int> ids = new List<int>();
             for (int i = 0; i < 256; i++)
             {
                 if (DisconnectQueue.TryDequeue(out var id))
@@ -383,9 +383,9 @@ namespace Shark.Client
             _stopInternal.TrySetResult(0);
         }
 
-        private async Task Disconnect(List<Guid> ids)
+        private async Task Disconnect(List<int> ids)
         {
-            var block = new BlockData() { Id = Guid.Empty, Type = BlockType.DISCONNECT };
+            var block = new BlockData() { Id = 0, Type = BlockType.DISCONNECT };
             var data = JsonConvert.SerializeObject(ids);
             block.Data = Encoding.UTF8.GetBytes(data);
             EncryptBlock(ref block);
@@ -394,7 +394,7 @@ namespace Shark.Client
             await WriteBlock(block);
         }
 
-        public Guid ChangeId(Guid id)
+        public int ChangeId(int id)
         {
             Id = id;
             return id;
@@ -451,21 +451,21 @@ namespace Shark.Client
         }
         #endregion
 
-        public async Task<ISocketClient> ConnectTo(IPAddress address, int port, RemoteType type = RemoteType.Tcp, Guid? id = null)
+        public async Task<ISocketClient> ConnectTo(IPAddress address, int port, RemoteType type = RemoteType.Tcp, int? id = null)
         {
             await _tcp.ConnectAsync(address, port);
             _stream = _tcp.GetStream();
             return this;
         }
 
-        public async Task<ISocketClient> ConnectTo(string address, int port, RemoteType type = RemoteType.Tcp, Guid? id = null)
+        public async Task<ISocketClient> ConnectTo(string address, int port, RemoteType type = RemoteType.Tcp, int? id = null)
         {
             await _tcp.ConnectAsync(address, port);
             _stream = _tcp.GetStream();
             return this;
         }
 
-        public Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, Guid? id = null)
+        public Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, int? id = null)
         {
             return ConnectTo(endPoint.Address, endPoint.Port, type, id);
         }

@@ -12,8 +12,8 @@ namespace Shark.Net.Client
         ILogger Logger { get; }
         HostData Remote { get; }
         bool Disposed { get; }
-        IDictionary<Guid, ISharkClient> Sharks { get; }
-        IDictionary<Guid, IProxyClient> Clients { get; }
+        IDictionary<int, ISharkClient> Sharks { get; }
+        IDictionary<int, IProxyClient> Clients { get; }
 
         Task<ISharkClient> GetOrCreateSharkClient();
         Task Start();

@@ -10,14 +10,14 @@ namespace Shark.Server.Net
     public abstract class SharkServer : ISharkServer
     {
         public bool Disposed { get; private set; } = false;
-        public IDictionary<Guid, ISharkClient> Clients => _clients;
+        public IDictionary<int, ISharkClient> Clients => _clients;
 
         public abstract ILogger Logger { get; }
         public abstract IServiceProvider ServiceProvider { get; }
 
         public event Action<ISharkClient> OnConnected;
 
-        protected Dictionary<Guid, ISharkClient> _clients = new Dictionary<Guid, ISharkClient>();
+        protected Dictionary<int, ISharkClient> _clients = new Dictionary<int, ISharkClient>();
 
         protected SharkServer()
         {
@@ -29,7 +29,7 @@ namespace Shark.Server.Net
             return this;
         }
 
-        public void RemoveClient(Guid id)
+        public void RemoveClient(int id)
         {
             _clients.Remove(id);
         }

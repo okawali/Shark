@@ -1,15 +1,16 @@
-﻿using System;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Shark.Data;
 using Shark.Net;
 using Shark.Net.Client;
+using Shark.Utils;
+using System;
+using System.Threading.Tasks;
 
 namespace Shark.Client.Proxy
 {
     public abstract class ProxyClient : IProxyClient
     {
-        public Guid Id { get; private set; }
+        public int Id { get; private set; }
         public bool Disposed { get; private set; }
         public IProxyServer Server { get; private set; }
         public abstract ILogger Logger { get; }
@@ -24,7 +25,7 @@ namespace Shark.Client.Proxy
         public ProxyClient(IProxyServer server, ISharkClient shark)
         {
             Disposed = false;
-            Id = Guid.NewGuid();
+            Id = RandomIdGenerator.NewId();
             Server = server;
             Shark = shark;
         }

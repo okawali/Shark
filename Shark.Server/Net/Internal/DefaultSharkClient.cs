@@ -34,7 +34,7 @@ namespace Shark.Server.Net.Internal
             ServiceProvider = serviceProvider;
         }
 
-        public override async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, Guid? id = null)
+        public override async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, int? id = null)
         {
             ISocketClient socket;
             if (type == RemoteType.Tcp)

@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Shark.Data;
 using Shark.Net;
+using Shark.Utils;
 using System;
 using System.Collections.Concurrent;
 using System.Net;
@@ -13,7 +14,7 @@ namespace Shark.Server.Net.Internal
     internal class UdpSocketClient : ISocketClient
     {
         public bool Disposed { get; private set; }
-        public Guid Id { get; private set; }
+        public int Id { get; private set; }
         public ILogger Logger { get; }
 
         public IServiceProvider ServiceProvider { get; }
@@ -27,7 +28,7 @@ namespace Shark.Server.Net.Internal
         private readonly ConcurrentDictionary<SocksRemote, IPEndPoint> _addressMap;
         private SocksRemote lastRemote;
 
-        public UdpSocketClient(UdpClient udp, Guid? id, IServiceProvider serviceProvider, ILogger<UdpSocketClient> logger)
+        public UdpSocketClient(UdpClient udp, int? id, IServiceProvider serviceProvider, ILogger<UdpSocketClient> logger)
         {
             _udp = udp;
 
@@ -37,7 +38,7 @@ namespace Shark.Server.Net.Internal
             }
             else
             {
-                Id = Guid.NewGuid();
+                Id = RandomIdGenerator.NewId();
             }
             _syncRoot = new object();
             _endPointMap = new ConcurrentDictionary<IPEndPoint, SocksRemote>();
@@ -145,7 +146,7 @@ namespace Shark.Server.Net.Internal
         }
         #endregion
 
-        public static Task<ISocketClient> ConnectTo(IServiceProvider serviceProvider, IPEndPoint endPoint, Guid? id = null)
+        public static Task<ISocketClient> ConnectTo(IServiceProvider serviceProvider, IPEndPoint endPoint, int? id = null)
         {
             var udp = new UdpClient(0, AddressFamily.InterNetwork);
             var socketClient = ActivatorUtilities.CreateInstance<UdpSocketClient>(serviceProvider, udp, id);

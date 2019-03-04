@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Shark.Net;
+using Shark.Utils;
 using System;
 using System.Net;
 using System.Net.Sockets;
@@ -11,7 +12,7 @@ namespace Shark.Server.Net.Internal
     internal class DefaultSocketClient : ISocketClient
     {
         public event Action<ISocketClient> RemoteDisconnected;
-        public Guid Id { get; private set; }
+        public int Id { get; private set; }
         public bool Disposed { get; private set; }
 
         public ILogger Logger { get; }
@@ -22,7 +23,7 @@ namespace Shark.Server.Net.Internal
         private NetworkStream _stream;
         private object _syncRoot;
 
-        public DefaultSocketClient(TcpClient tcp, Guid? id, IServiceProvider serviceProvider, ILogger<DefaultSocketClient> logger)
+        public DefaultSocketClient(TcpClient tcp, int? id, IServiceProvider serviceProvider, ILogger<DefaultSocketClient> logger)
         {
             _tcp = tcp;
             _stream = _tcp.GetStream();
@@ -33,7 +34,7 @@ namespace Shark.Server.Net.Internal
             }
             else
             {
-                Id = Guid.NewGuid();
+                Id = RandomIdGenerator.NewId();
             }
             Logger = logger;
             _syncRoot = new object();
@@ -75,7 +76,7 @@ namespace Shark.Server.Net.Internal
             RemoteDisconnected?.Invoke(this);
         }
 
-        public static async Task<ISocketClient> ConnectTo(IServiceProvider serviceProvider, IPEndPoint endPoint, Guid? id = null)
+        public static async Task<ISocketClient> ConnectTo(IServiceProvider serviceProvider, IPEndPoint endPoint, int? id = null)
         {
             var tcp = new TcpClient(AddressFamily.InterNetworkV6);
             tcp.Client.DualMode = true;

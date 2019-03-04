@@ -8,7 +8,7 @@ namespace Shark.Net
     {
         IServiceProvider ServiceProvider { get; }
         bool Disposed { get; }
-        Guid Id { get; }
+        int Id { get; }
         ILogger Logger { get; }
         event Action<ISocketClient> RemoteDisconnected;
 
