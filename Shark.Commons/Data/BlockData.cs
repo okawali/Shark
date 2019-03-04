@@ -24,7 +24,7 @@ namespace Shark.Data
         public int Length;
         [FieldOffset(29)]
         public uint HeaderCrc32;
-        [FieldOffset(HEADER_SIZE % 8 == 0 ? HEADER_SIZE : (HEADER_SIZE / 8 + 1) * 8)]
+        [FieldOffset(HEADER_SIZE % 4 == 0 ? HEADER_SIZE : (HEADER_SIZE / 4 + 1) * 4)]
         public byte[] Data;
         public bool IsValid => Type != BlockType.INVALID;
 
