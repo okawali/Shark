@@ -1,5 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project=".\Shark.Client.Project.props"/>
+  <Import Project=".\Shark.Client.Project.props" />
 
   <PropertyGroup>
     <TargetFramework>netcoreapp2.2</TargetFramework>

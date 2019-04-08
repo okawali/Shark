@@ -70,10 +70,18 @@ namespace Shark.Client.Proxy
                     throw;
                 }
             }
+
             if (Sharks.Count == 0)
             {
+                SpinWait.SpinUntil(() => Sharks.Count > 0 || _waitingCount == 0);
+            }
 
-                SpinWait.SpinUntil(() => Sharks.Count > 0);
+            if (Sharks.Count == 0)
+            {
+                // just throw an connot connect error
+                Logger.LogWarning($"Connect to Remote shark server {Remote} failed");
+
+                throw new SharkException("Connect to Remote shark server {Remote} failed");
             }
 
             return Sharks.Values.ElementAt(_random.Next(Sharks.Count));
