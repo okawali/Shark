@@ -122,7 +122,9 @@ namespace Shark.Server.Net
                     break;
                 }
             }
-            var valid = BlockData.TryParseHeader(header, out var block);
+
+            var valid = BlockData.TryParseHeader(header, 0, totalRead, out var block);
+
             if (!valid)
             {
                 block.Type = BlockType.INVALID;

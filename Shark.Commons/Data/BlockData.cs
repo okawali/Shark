@@ -72,18 +72,18 @@ namespace Shark.Data
 
         public override string ToString() => $"{Id}:{Type}:{BlockNumber}:{Length}";
 
-        public unsafe static bool TryParseHeader(byte[] header, out BlockData result)
+        public unsafe static bool TryParseHeader(byte[] header, int start, int count, out BlockData result)
         {
             result = new BlockData();
 
-            if (header.Length != HEADER_SIZE)
+            if (count != HEADER_SIZE)
             {
                 return false;
             }
 
             fixed (byte* ptr = result._bin)
             {
-                Marshal.Copy(header, 0, (IntPtr)ptr, HEADER_SIZE);
+                Marshal.Copy(header, start, (IntPtr)ptr, count);
             }
 
             return true;
