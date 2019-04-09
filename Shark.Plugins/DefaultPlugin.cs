@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Shark.Authentication;
 using Shark.Crypto;
 using Shark.Plugins.Internal;
 
@@ -9,7 +10,8 @@ namespace Shark.Plugins
         public void Configure(IServiceCollection services)
         {
             services.AddScoped<ICrypter, AesCrypter>()
-                .AddScoped<IKeyGenerator, ScryptKeyGenerator>();
+                .AddSingleton<IKeyGenerator, ScryptKeyGenerator>()
+                .AddSingleton<IAuthenticator, DefaultAuthtucator>();
         }
     }
 }

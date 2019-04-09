@@ -55,7 +55,7 @@ namespace Shark.Client.Proxy.Socks5
                     resp = Socks5Response.FromRequest(_request, SocksResponse.SUCCESS);
                     var data = resp.ToBytes();
 
-                    await WriteAsync(data, 0, data.Length);
+                    await WriteAsync(data);
                     await FlushAsync();
                     Logger.LogInformation($"{_target} connected, {Id}");
 
@@ -67,7 +67,7 @@ namespace Shark.Client.Proxy.Socks5
                 {
                     resp = Socks5Response.FromRequest(_request, _udp.Client.LocalEndPoint as IPEndPoint);
                     var data = resp.ToBytes();
-                    await WriteAsync(data, 0, data.Length);
+                    await WriteAsync(data);
 
                     StopTcp();
                     _pipe.Reader.Complete();
@@ -78,7 +78,7 @@ namespace Shark.Client.Proxy.Socks5
             {
                 var resp = Socks5Response.FromRequest(_request, SocksResponse.CANNOT_CONNECT);
                 var data = resp.ToBytes();
-                await WriteAsync(data, 0, data.Length);
+                await WriteAsync(data);
                 await FlushAsync();
 
                 _pipe.Reader.Complete();
@@ -91,13 +91,14 @@ namespace Shark.Client.Proxy.Socks5
             {
                 if (_target.IsUdp)
                 {
-                    Buffer.BlockCopy(block.Data, 0, _udpBuffer, 3, block.Data.Length);
+                    block.Data.CopyTo(new Memory<byte>(_udpBuffer, 3, block.Data.Length));
+
                     _udpBuffer[0] = _udpBuffer[1] = _udpBuffer[2] = 0;
                     await _udp.SendAsync(_udpBuffer, block.Data.Length + 3, _lastEndpoint);
                 }
                 else
                 {
-                    await WriteAsync(block.Data, 0, block.Data.Length);
+                    await WriteAsync(block.Data);
                     await FlushAsync();
                 }
             }
@@ -129,7 +130,7 @@ namespace Shark.Client.Proxy.Socks5
 
             byte auth = valid ? SocksAuthType.NO_AUTH : SocksAuthType.UNAVALIABLE;
 
-            await WriteAsync(new byte[] { Socks.VERSION, auth }, 0, 2);
+            await WriteAsync(new byte[] { Socks.VERSION, auth });
             await FlushAsync();
 
             if (valid)
@@ -169,7 +170,7 @@ namespace Shark.Client.Proxy.Socks5
             var resp = Socks5Response.FromRequest(_request, SocksResponse.CANNOT_CONNECT);
             var data = resp.ToBytes();
 
-            await WriteAsync(data, 0, data.Length);
+            await WriteAsync(data);
             await FlushAsync();
 
             _pipe.Reader.Complete();
@@ -330,7 +331,6 @@ namespace Shark.Client.Proxy.Socks5
 
                         block.Data = copyedBuffer;
                         Shark.EncryptBlock(ref block);
-                        block.BodyCrc32 = block.ComputeCrc();
                         await Shark.WriteBlock(block);
                     }
                 }
@@ -387,7 +387,6 @@ namespace Shark.Client.Proxy.Socks5
                         var block = new BlockData() { Id = Id, BlockNumber = dataNumber++, Type = BlockType.DATA };
                         block.Data = requset.Data.ToBytes();
                         Shark.EncryptBlock(ref block);
-                        block.BodyCrc32 = block.ComputeCrc();
                         await Shark.WriteBlock(block);
                     }
                 }
@@ -432,22 +431,22 @@ namespace Shark.Client.Proxy.Socks5
             }
         }
 
-        public override async Task<int> ReadAsync(byte[] buffer, int offset, int count)
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer)
         {
             var read =  await _pipe.Reader.ReadAsync();
-            var readed = Math.Min(read.Buffer.Length, count);
+            var readed = Math.Min(read.Buffer.Length, buffer.Length);
             var data = read.Buffer.Slice(0, readed);
 
-            data.CopyTo(new Span<byte>(buffer, offset, count));
+            data.CopyTo(buffer.Span);
 
             _pipe.Reader.AdvanceTo(data.End);
 
             return (int)readed;
         }
 
-        public override Task WriteAsync(byte[] buffer, int offset, int count)
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer)
         {
-            return _stream.WriteAsync(buffer, offset, count);
+            return _stream.WriteAsync(buffer);
         }
 
         public override Task FlushAsync()

@@ -7,7 +7,7 @@ namespace Shark.Utils
     {
         public static unsafe byte[] GenerateFastConnectData(int id, ReadOnlySpan<byte> challenge, ReadOnlySpan<byte> password, ReadOnlySpan<byte> encryptedData)
         {
-            //|--id(4)--|---challengeLength(4, le)----|----- challenge-------|--passwordlength(4, le)--|--password--|--data--|
+            //|--id(4)--|---challengeLength(4, le)----|------challenge-------|----passwordlength(4, le)--|--password--|--data--|
             var result = new byte[12 + challenge.Length + password.Length + encryptedData.Length];
 
             challenge.CopyTo(new Span<byte>(result, 8, challenge.Length));
@@ -28,17 +28,17 @@ namespace Shark.Utils
             return result;
         }
 
-        public static (int id, ReadOnlyMemory<byte> challenge, ReadOnlyMemory<byte> password, ReadOnlyMemory<byte> encryptedData) ParseFactConnectData(byte[] data)
+        public static (int id, ReadOnlyMemory<byte> challenge, ReadOnlyMemory<byte> password, ReadOnlyMemory<byte> encryptedData) ParseFactConnectData(ReadOnlyMemory<byte> data)
         {
-            var id = BitConverter.ToInt32(data);
-            var challengeLength = BitConverter.ToInt32(data, 4);
-            var passwordLength = BitConverter.ToInt32(data, 8 + challengeLength);
+            var id = BitConverter.ToInt32(data.Span);
+            var challengeLength = BitConverter.ToInt32(data.Span.Slice(4, 4));
+            var passwordLength = BitConverter.ToInt32(data.Span.Slice(8 + challengeLength, 4));
 
             return (
                     id,
-                    new ReadOnlyMemory<byte>(data, 8, challengeLength),
-                    new ReadOnlyMemory<byte>(data, 8 + challengeLength, passwordLength),
-                    new ReadOnlyMemory<byte>(data, 12 + challengeLength + passwordLength, data.Length - (12 + challengeLength + passwordLength))
+                    data.Slice(8, challengeLength),
+                    data.Slice(12 + challengeLength, passwordLength),
+                    data.Slice(12 + challengeLength + passwordLength)
                    );
         }
     }

@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Shark.Authentication;
 using Shark.Net;
 using Shark.Net.Client;
 using Shark.Options;
@@ -88,9 +89,16 @@ namespace Shark.Client.Proxy
 
                     proxyClient.RemoteDisconnected += OnClientRemoteDisconencted;
                 }
+                catch (AuthenticationException ex)
+                {
+
+                    Logger.LogError(ex, $"Client Auth failed");
+                    shark.Dispose();
+                    Interlocked.Decrement(ref _waitingCount);
+                }
                 catch (Exception ex)
                 {
-                    Logger.LogError($"Process Connect failed for {proxyClient.Id}", ex);
+                    Logger.LogError(ex, $"Process Connect failed for {proxyClient.Id}");
 
                     shark.RemoteClients.Remove(proxyClient.Id);
                     Clients.Remove(proxyClient.Id);

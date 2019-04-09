@@ -31,8 +31,8 @@ namespace Shark.Client.Proxy
         }
 
 
-        public abstract Task<int> ReadAsync(byte[] buffer, int offset, int count);
-        public abstract Task WriteAsync(byte[] buffer, int offset, int count);
+        public abstract ValueTask<int> ReadAsync(Memory<byte> buffer);
+        public abstract ValueTask WriteAsync(ReadOnlyMemory<byte> buffer);
         public abstract Task FlushAsync();
 
         #region IDisposable Support
