@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Norgerman.Cryptography.Scrypt;
+using Shark.Authentication;
 using Shark.Constants;
 using Shark.Crypto;
 using Shark.Data;
@@ -45,10 +46,15 @@ namespace Shark.Client
         private readonly object _syncRoot;
         private readonly Timer _disconnectTimer;
         private readonly Timer _closeTimer;
-        private IKeyGenerator _keyGenerator;
+        private readonly IKeyGenerator _keyGenerator;
+        private readonly IAuthenticator _authenticator;
         private int _closeTimerStarted;
 
-        public SharkClient(IServiceProvider serviceProvider, ILogger<SharkClient> logger, IKeyGenerator keyGenerator, ICrypter crypter)
+        public SharkClient(IServiceProvider serviceProvider,
+            ILogger<SharkClient> logger,
+            IKeyGenerator keyGenerator,
+            ICrypter crypter,
+            IAuthenticator authenticator)
         {
             var tcp = new TcpClient(AddressFamily.InterNetworkV6);
             tcp.Client.DualMode = true;
@@ -65,9 +71,11 @@ namespace Shark.Client
             _closeTimer = new Timer(OnCloseTimeout, null, Timeout.Infinite, Timeout.Infinite);
             _closeTimerStarted = 0;
             Logger = logger;
-            Crypter = crypter;
             Initialized = false;
+
+            Crypter = crypter;
             _keyGenerator = keyGenerator;
+            _authenticator = authenticator;
         }
 
         public void ConfigureCrypter(byte[] password)
@@ -95,8 +103,14 @@ namespace Shark.Client
 
         public async Task Auth()
         {
-            await WriteBlock(new BlockData() { Id = Id, Type = BlockType.HAND_SHAKE });
-            var block = await ReadBlock();
+            BlockData block = new BlockData() { Id = Id, Type = BlockType.HAND_SHAKE, Data = _authenticator.GenerateChallenge() };
+            block.ComputeCrc();
+
+            await WriteBlock(block);
+            block = await ReadBlock();
+
+            _authenticator.ValidateChallengeResponse(block.Data);
+
             if (block.Type != BlockType.HAND_SHAKE || block.Id == 0)
             {
                 throw new SharkException("HandShake Failed, response invalid");
@@ -115,29 +129,26 @@ namespace Shark.Client
             }
 
             block = new BlockData() { Id = Id, Type = BlockType.HAND_SHAKE_RESPONSE };
-            block.Data = ScryptUtil.Scrypt(Guid.NewGuid().ToString(), Guid.NewGuid().ToByteArray(), 1024, 8, 8, 16);
+            block.Data = _authenticator.GenerateCrypterPassword();
             block.BodyCrc32 = block.ComputeCrc();
             block.Length = block.Data.Length;
             await WriteBlock(block);
             ConfigureCrypter(block.Data);
-            block = await ReadBlock();
-            if (block.Type != BlockType.HAND_SHAKE_FINAL)
-            {
-                throw new SharkException("Hand shake failed, response invalid");
-            }
+
             Initialized = true;
         }
 
         public async Task<BlockData> FastConnect(int id, HostData hostData)
         {
             var data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(hostData));
-            var password = ScryptUtil.Scrypt(Guid.NewGuid().ToString(), Guid.NewGuid().ToByteArray(), 1024, 8, 8, 16);
+            var password = _authenticator.GenerateCrypterPassword();
             var block = new BlockData() { Id = id, Type = BlockType.FAST_CONNECT };
+
             ConfigureCrypter(password);
             block.Data = data;
             EncryptBlock(ref block);
 
-            block.Data = FastConnectUtils.GenerateFastConnectData(Id, password, block.Data);
+            block.Data = FastConnectUtils.GenerateFastConnectData(Id, _authenticator.GenerateChallenge(), password, block.Data);
             block.Length = block.Data.Length;
             block.BodyCrc32 = block.ComputeCrc();
 
@@ -300,7 +311,7 @@ namespace Shark.Client
             }
 
             var valid = BlockData.TryParseHeader(header, 0, totalRead, out var block);
-  
+
             if (!valid)
             {
                 block.Type = BlockType.INVALID;

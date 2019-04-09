@@ -4,7 +4,8 @@
     {
         public const byte HAND_SHAKE = 0;
         public const byte HAND_SHAKE_RESPONSE = 1;
-        public const byte HAND_SHAKE_FINAL = 2;
+        //public const byte HAND_SHAKE_FINAL = 2; deprecated!
+
         public const byte CONNECT = 3;
         public const byte CONNECTED = 4;
         public const byte REQUEST_RESEND = 5;

@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Shark.Authentication;
 using Shark.Constants;
 using Shark.Crypto;
 using Shark.Data;
@@ -29,6 +30,7 @@ namespace Shark.Server.Net
 
         public abstract ICrypter Crypter { get; }
         public abstract IServiceProvider ServiceProvider { get; }
+        protected abstract IAuthenticator Authenticator { get; }
 
         public abstract event Action<ISocketClient> RemoteDisconnected;
 
@@ -251,15 +253,13 @@ namespace Shark.Server.Net
                 await WriteBlock(block);
                 block = await ReadBlock();
                 ConfigureCrypter(block.Data);
-                block = new BlockData { Id = Id, Type = BlockType.HAND_SHAKE_FINAL };
-                await WriteBlock(block);
             }
             else if (block.Type == BlockType.FAST_CONNECT)
             {
                 var data = block.Data;
-                var (id, password, encryptedData) = FastConnectUtils.ParseFactConnectData(data);
-                this.ConfigureCrypter(password);
-                block.Data = encryptedData;
+                var (id, challenge, password, encryptedData) = FastConnectUtils.ParseFactConnectData(data);
+                ConfigureCrypter(password.Span);
+                block.Data = encryptedData.ToArray();
                 DecryptBlock(ref block);
                 if (id != 0)
                 {
@@ -315,7 +315,7 @@ namespace Shark.Server.Net
         public abstract Task WriteAsync(byte[] buffer, int offset, int count);
         public abstract Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, int? id = null);
         public abstract Task FlushAsync();
-        public abstract void ConfigureCrypter(byte[] password);
+        public abstract void ConfigureCrypter(ReadOnlySpan<byte> password);
 
         #region
         public Task<BlockData> FastConnect(int id, HostData hostData)

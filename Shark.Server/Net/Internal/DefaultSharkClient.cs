@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Shark.Authentication;
 using Shark.Crypto;
 using Shark.Data;
 using Shark.Net;
@@ -16,13 +17,18 @@ namespace Shark.Server.Net.Internal
         public override IServiceProvider ServiceProvider { get; }
 
         public override ICrypter Crypter { get; }
-
+        protected override IAuthenticator Authenticator { get; }
         private readonly IKeyGenerator _keyGenerator;
         private readonly object _syncRoot;
         private TcpClient _tcp;
         private NetworkStream _stream;
 
-        public DefaultSharkClient(TcpClient tcp, SharkServer server, IServiceProvider serviceProvider, ILogger<DefaultSharkClient> logger, IKeyGenerator keyGenrator, ICrypter crypter)
+        public DefaultSharkClient(TcpClient tcp, SharkServer server, 
+            IServiceProvider serviceProvider, 
+            ILogger<DefaultSharkClient> logger, 
+            IKeyGenerator keyGenrator, 
+            ICrypter crypter,
+            IAuthenticator authenticator)
             : base(server)
         {
             _tcp = tcp;
@@ -32,6 +38,7 @@ namespace Shark.Server.Net.Internal
             _syncRoot = new object();
             Logger = logger;
             ServiceProvider = serviceProvider;
+            Authenticator = authenticator;
         }
 
         public override async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, int? id = null)
@@ -112,7 +119,7 @@ namespace Shark.Server.Net.Internal
             }
         }
 
-        public override void ConfigureCrypter(byte[] password)
+        public override void ConfigureCrypter(ReadOnlySpan<byte> password)
         {
             Crypter.Init(_keyGenerator.Generate(password));
         }

@@ -1,4 +1,6 @@
-﻿namespace Shark.Crypto
+﻿using System;
+
+namespace Shark.Crypto
 {
     public struct CryptoKey
     {
@@ -10,6 +12,6 @@
     {
         string Name { get; }
 
-        CryptoKey Generate(byte[] password);
+        CryptoKey Generate(ReadOnlySpan<byte> password);
     }
 }

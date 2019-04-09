@@ -29,7 +29,7 @@ namespace Shark.Net
         Task<BlockData> FastConnect(int id, HostData hostData);
         Task ProxyTo(int id, HostData hostData);
 
-        void ConfigureCrypter(byte[] password);
+        void ConfigureCrypter(ReadOnlySpan<byte> password);
         void EncryptBlock(ref BlockData block);
         void DecryptBlock(ref BlockData block);
         void RemoveRemoteClient(int id);

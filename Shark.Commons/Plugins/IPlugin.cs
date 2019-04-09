@@ -4,6 +4,6 @@ namespace Shark.Plugins
 {
     public interface IPlugin
     {
-        void Configure(ServiceCollection services);
+        void Configure(IServiceCollection services);
     }
 }

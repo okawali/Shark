@@ -1,10 +1,9 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Mono.Options;
-using Shark.Constants;
-using Shark.Crypto;
 using Shark.Net.Server;
 using Shark.Options;
+using Shark.Plugins;
 using Shark.Server.Net.Internal;
 using System;
 using System.Net;
@@ -43,7 +42,7 @@ namespace Shark.Server
                 }
                 else
                 {
-                    var serviceProvider = new ServiceCollection()
+                    var serviceCollection = new ServiceCollection()
                         .AddOptions()
                         .Configure<BindingOptions>(option =>
                         {
@@ -55,12 +54,12 @@ namespace Shark.Server
                             builder.AddConsole();
                             builder.SetMinimumLevel(logLevel);
                         })
-                        .AddSingleton<IKeyGenerator, ScryptKeyGenerator>()
-                        .AddScoped<ICrypter, AesCrypter>()
-                        .AddTransient<ISharkServer, DefaultSharkServer>()
-                        .BuildServiceProvider();
+                        .AddTransient<ISharkServer, DefaultSharkServer>();
 
-                    serviceProvider.GetRequiredService<ISharkServer>()
+                    new DefaultPlugin().Configure(serviceCollection);
+
+                    serviceCollection.BuildServiceProvider()
+                        .GetRequiredService<ISharkServer>()
                         .OnClientConnected(async client =>
                         {
                             try

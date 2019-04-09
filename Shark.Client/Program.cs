@@ -4,11 +4,11 @@ using Mono.Options;
 using Shark.Client.Proxy;
 using Shark.Client.Proxy.Http;
 using Shark.Client.Proxy.Socks5;
-using Shark.Crypto;
 using Shark.Data;
 using Shark.Net;
 using Shark.Net.Client;
 using Shark.Options;
+using Shark.Plugins;
 using System;
 using System.Net;
 using System.Net.Sockets;
@@ -63,7 +63,7 @@ namespace Shark.Client
                 optionSet.Parse(args);
                 if (!showHelp)
                 {
-                    var serviceProvider = new ServiceCollection()
+                    var serviceCollection = new ServiceCollection()
                           .AddOptions()
                           .Configure<BindingOptions>(option =>
                           {
@@ -84,8 +84,6 @@ namespace Shark.Client
                               builder.AddConsole();
                               builder.SetMinimumLevel(logLevel);
                           })
-                          .AddSingleton<IKeyGenerator, ScryptKeyGenerator>()
-                          .AddScoped<ICrypter, AesCrypter>()
                           .AddScoped<ISharkClient, SharkClient>()
                           .AddTransient(provider =>
                           {
@@ -102,10 +100,13 @@ namespace Shark.Client
                                       break;
                               }
                               return server;
-                          })
-                          .BuildServiceProvider();
+                          });
 
-                    serviceProvider.GetRequiredService<IProxyServer>()
+
+                    new DefaultPlugin().Configure(serviceCollection);
+
+                    serviceCollection.BuildServiceProvider()
+                        .GetRequiredService<IProxyServer>()
                         .Start()
                         .Wait();
                 }

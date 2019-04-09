@@ -1,8 +1,10 @@
 ﻿using Norgerman.Cryptography.Scrypt;
+using Shark.Crypto;
+using System;
 
-namespace Shark.Crypto
+namespace Shark.Plugins.Internal
 {
-    public class ScryptKeyGenerator : IKeyGenerator
+    class ScryptKeyGenerator : IKeyGenerator
     {
         public string Name => "scrypt";
 
@@ -16,6 +18,11 @@ namespace Shark.Crypto
                 Key = key,
                 IV = iv
             };
+        }
+
+        public CryptoKey Generate(ReadOnlySpan<byte> password)
+        {
+            return Generate(password.ToArray());
         }
     }
 }

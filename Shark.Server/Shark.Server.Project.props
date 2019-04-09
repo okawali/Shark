@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Shark.Commons\Shark.Commons.csproj" />
+    <ProjectReference Include="..\Shark.Plugins\Shark.Plugins.csproj" />
   </ItemGroup>
 
 </Project>
