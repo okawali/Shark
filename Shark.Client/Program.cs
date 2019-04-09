@@ -77,7 +77,7 @@ namespace Shark.Client
                                   Address = remoteAddr,
                                   Port = (ushort)remotePort,
                               };
-                              options.MaxClientCount = 8;
+                              options.MaxClientCount = maxCount;
                           })
                           .AddLogging(builder =>
                           {
