@@ -56,7 +56,7 @@ namespace Shark.Server
                         })
                         .AddTransient<ISharkServer, DefaultSharkServer>();
 
-                    new DefaultPlugin().Configure(serviceCollection);
+                    new PluginLoader("./plugins").Load(serviceCollection);
 
                     serviceCollection.BuildServiceProvider()
                         .GetRequiredService<ISharkServer>()

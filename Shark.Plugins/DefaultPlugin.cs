@@ -5,7 +5,7 @@ using Shark.Plugins.Internal;
 
 namespace Shark.Plugins
 {
-    public class DefaultPlugin : IPlugin
+    class DefaultPlugin : IPlugin
     {
         public void Configure(IServiceCollection services)
         {

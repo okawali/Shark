@@ -103,7 +103,7 @@ namespace Shark.Client
                           });
 
 
-                    new DefaultPlugin().Configure(serviceCollection);
+                    new PluginLoader("./plugins").Load(serviceCollection);
 
                     serviceCollection.BuildServiceProvider()
                         .GetRequiredService<IProxyServer>()
