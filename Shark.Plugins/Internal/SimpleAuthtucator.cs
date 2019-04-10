@@ -5,8 +5,10 @@ using System.Text;
 
 namespace Shark.Plugins.Internal
 {
-    class DefaultAuthtucator : IAuthenticator
+    class SimpleAuthtucator : IAuthenticator
     {
+        public string Name { get; } = "simple";
+
         private readonly byte[] _challenge = Encoding.UTF8.GetBytes("hello");
         private readonly byte[] _challengeResoponse = Encoding.UTF8.GetBytes("shark");
 

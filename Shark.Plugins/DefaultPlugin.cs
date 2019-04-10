@@ -11,7 +11,7 @@ namespace Shark.Plugins
         {
             services.AddScoped<ICrypter, AesCrypter>()
                 .AddSingleton<IKeyGenerator, ScryptKeyGenerator>()
-                .AddSingleton<IAuthenticator, DefaultAuthtucator>();
+                .AddSingleton<IAuthenticator, SimpleAuthtucator>();
         }
     }
 }
