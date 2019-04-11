@@ -26,11 +26,11 @@ namespace Shark.Plugins.Internal
                 where T: INamed
         {
             var services = _serviceProvider.GetServices<T>();
-            var service = services.FirstOrDefault(s => s.Name == name);
+            var service = services.LastOrDefault(s => s.Name == name);
 
             if (service == null)
             {
-                services.FirstOrDefault(s => s.Name == fallbackName);
+                services.LastOrDefault(s => s.Name == fallbackName);
             }
 
             return service;
