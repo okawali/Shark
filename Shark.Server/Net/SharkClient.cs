@@ -1,11 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Shark.Authentication;
 using Shark.Constants;
-using Shark.Crypto;
 using Shark.Data;
 using Shark.Net;
 using Shark.Net.Server;
+using Shark.Security.Authentication;
+using Shark.Security.Crypto;
 using Shark.Utils;
 using System;
 using System.Collections.Concurrent;
@@ -28,7 +28,7 @@ namespace Shark.Server.Net
         public bool Disposed { get; private set; } = false;
         public bool Initialized => true;
 
-        public abstract ICrypter Crypter { get; }
+        public abstract ICryptor Cryptor { get; }
         public abstract IServiceProvider ServiceProvider { get; }
         protected abstract IAuthenticator Authenticator { get; }
 
@@ -82,14 +82,14 @@ namespace Shark.Server.Net
 
         public void EncryptBlock(ref BlockData block)
         {
-            block.Data = Crypter?.Encrypt(block.Data.Span) ?? block.Data;
+            block.Data = Cryptor?.Encrypt(block.Data.Span) ?? block.Data;
         }
 
         public void DecryptBlock(ref BlockData block)
         {
             if (block.IsValid)
             {
-                block.Data = Crypter?.Decrypt(block.Data.Span) ?? block.Data;
+                block.Data = Cryptor?.Decrypt(block.Data.Span) ?? block.Data;
             }
         }
 
@@ -250,13 +250,13 @@ namespace Shark.Server.Net
 
                 block = await ReadBlock();
 
-                ConfigureCrypter(block.Data.Span);
+                ConfigureCryptor(block.Data.Span);
             }
             else if (block.Type == BlockType.FAST_CONNECT)
             {
                 var data = block.Data;
                 var (id, challenge, password, encryptedData) = FastConnectUtils.ParseFactConnectData(data);
-                ConfigureCrypter(password.Span);
+                ConfigureCryptor(password.Span);
                 block.Data = encryptedData.ToArray();
                 DecryptBlock(ref block);
 
@@ -314,7 +314,7 @@ namespace Shark.Server.Net
         public abstract ValueTask WriteAsync(ReadOnlyMemory<byte> buffer);
         public abstract Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, int? id = null);
         public abstract Task FlushAsync();
-        public abstract void ConfigureCrypter(ReadOnlySpan<byte> password);
+        public abstract void ConfigureCryptor(ReadOnlySpan<byte> password);
 
         #region
         public Task<BlockData> FastConnect(int id, HostData hostData)

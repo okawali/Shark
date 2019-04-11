@@ -1,11 +1,11 @@
 ﻿using Norgerman.Cryptography.Scrypt;
-using Shark.Authentication;
+using Shark.Security.Authentication;
 using System;
 using System.Text;
 
 namespace Shark.Plugins.Internal
 {
-    class SimpleAuthtucator : IAuthenticator
+    class SimpleAuthenticator : IAuthenticator
     {
         public string Name { get; } = "simple";
 

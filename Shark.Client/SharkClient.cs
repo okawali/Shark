@@ -1,11 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Norgerman.Cryptography.Scrypt;
-using Shark.Authentication;
 using Shark.Constants;
-using Shark.Crypto;
 using Shark.Data;
 using Shark.Net;
+using Shark.Security;
+using Shark.Security.Authentication;
+using Shark.Security.Crypto;
 using Shark.Utils;
 using System;
 using System.Collections.Concurrent;
@@ -33,7 +33,7 @@ namespace Shark.Client
         public int Id { private set; get; }
         public bool Initialized { get; private set; }
         public ILogger Logger { get; }
-        public ICrypter Crypter { get; }
+        public ICryptor Cryptor { get; }
         public bool CanRead => true;
         public bool Disposed { private set; get; }
         public IServiceProvider ServiceProvider { get; }
@@ -52,9 +52,7 @@ namespace Shark.Client
 
         public SharkClient(IServiceProvider serviceProvider,
             ILogger<SharkClient> logger,
-            IKeyGenerator keyGenerator,
-            ICrypter crypter,
-            IAuthenticator authenticator)
+            ISecurityConfigurationFetcher securityConfigurationFetcher)
         {
             var tcp = new TcpClient(AddressFamily.InterNetworkV6);
             tcp.Client.DualMode = true;
@@ -73,26 +71,26 @@ namespace Shark.Client
             Logger = logger;
             Initialized = false;
 
-            Crypter = crypter;
-            _keyGenerator = keyGenerator;
-            _authenticator = authenticator;
+            Cryptor = securityConfigurationFetcher.FetchCryptor();
+            _keyGenerator = securityConfigurationFetcher.FetchKeyGenerator();
+            _authenticator = securityConfigurationFetcher.FetchAuthenticator();
         }
 
-        public void ConfigureCrypter(ReadOnlySpan<byte> password)
+        public void ConfigureCryptor(ReadOnlySpan<byte> password)
         {
-            Crypter.Init(_keyGenerator.Generate(password));
+            Cryptor.Init(_keyGenerator.Generate(password));
         }
 
         public void EncryptBlock(ref BlockData block)
         {
-            block.Data = Crypter?.Encrypt(block.Data.Span) ?? block.Data;
+            block.Data = Cryptor?.Encrypt(block.Data.Span) ?? block.Data;
         }
 
         public void DecryptBlock(ref BlockData block)
         {
             if (block.IsValid)
             {
-                block.Data = Crypter?.Decrypt(block.Data.Span) ?? block.Data;
+                block.Data = Cryptor?.Decrypt(block.Data.Span) ?? block.Data;
             }
         }
 
@@ -127,7 +125,7 @@ namespace Shark.Client
             block = new BlockData() { Id = Id, Type = BlockType.HAND_SHAKE_RESPONSE };
             block.Data = _authenticator.GenerateCrypterPassword();
             await WriteBlock(block);
-            ConfigureCrypter(block.Data.Span);
+            ConfigureCryptor(block.Data.Span);
 
             Initialized = true;
         }
@@ -138,7 +136,7 @@ namespace Shark.Client
             var password = _authenticator.GenerateCrypterPassword();
             var block = new BlockData() { Id = id, Type = BlockType.FAST_CONNECT };
 
-            ConfigureCrypter(password);
+            ConfigureCryptor(password);
             block.Data = data;
             EncryptBlock(ref block);
 

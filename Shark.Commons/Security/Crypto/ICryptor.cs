@@ -1,11 +1,9 @@
 ﻿using System;
 
-namespace Shark.Crypto
+namespace Shark.Security.Crypto
 {
-    public interface ICrypter
+    public interface ICryptor : INamed
     {
-        string Name { get; }
-
         /// <summary>
         /// init the crypter
         /// </summary>

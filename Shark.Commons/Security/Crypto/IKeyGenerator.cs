@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Shark.Crypto
+namespace Shark.Security.Crypto
 {
     public struct CryptoKey
     {
@@ -8,10 +8,8 @@ namespace Shark.Crypto
         public byte[] IV { set; get; }
     }
 
-    public interface IKeyGenerator
+    public interface IKeyGenerator : INamed
     {
-        string Name { get; }
-
         CryptoKey Generate(ReadOnlySpan<byte> password);
     }
 }

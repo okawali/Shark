@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
-namespace Shark.Authentication
+namespace Shark.Security.Authentication
 {
     [Serializable]
     public class AuthenticationException : Exception

@@ -1,5 +1,5 @@
 ﻿using Shark.Constants;
-using Shark.Crypto;
+using Shark.Security;
 using System;
 using System.Runtime.InteropServices;
 
@@ -18,7 +18,7 @@ namespace Shark.Data
         public int Rev;
         [FieldOffset(8)]
         public byte Type;
-        
+
         // unused fields
         [FieldOffset(9)]
         public byte Pad0;

@@ -49,6 +49,12 @@ namespace Shark.Server
                             option.EndPoint = new IPEndPoint(IPAddress.Parse(address), port);
                             option.Backlog = backlog;
                         })
+                        .Configure<SecurityOptions>(options =>
+                        {
+                            options.AuthenticatorName = "simple";
+                            options.KeyGeneratorName = "scrypt";
+                            options.CryptorName = "aes-256-cbc";
+                        })
                         .AddLogging(builder =>
                         {
                             builder.AddConsole();

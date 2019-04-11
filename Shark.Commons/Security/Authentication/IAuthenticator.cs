@@ -1,11 +1,9 @@
 ﻿using System;
 
-namespace Shark.Authentication
+namespace Shark.Security.Authentication
 {
-    public interface IAuthenticator
+    public interface IAuthenticator : INamed
     {
-        string Name { get; }
-
         byte[] GenerateChallenge();
         byte[] ValidateChallenge(ReadOnlySpan<byte> input);
         void ValidateChallengeResponse(ReadOnlySpan<byte> input);

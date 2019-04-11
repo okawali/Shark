@@ -1,5 +1,5 @@
 ﻿using Norgerman.Cryptography.Scrypt;
-using Shark.Crypto;
+using Shark.Security.Crypto;
 using System;
 
 namespace Shark.Plugins.Internal

@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Shark.Authentication;
+using Shark.Security.Authentication;
 using Shark.Net;
 using Shark.Net.Client;
 using Shark.Options;
