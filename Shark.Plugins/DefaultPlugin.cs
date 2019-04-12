@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Shark.Plugins.Internal;
+using Shark.Security;
 using Shark.Security.Authentication;
 using Shark.Security.Crypto;
-using Shark.Security;
-using Shark.Plugins.Internal;
 
 namespace Shark.Plugins
 {

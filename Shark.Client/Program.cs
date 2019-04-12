@@ -10,6 +10,7 @@ using Shark.Net.Client;
 using Shark.Options;
 using Shark.Plugins;
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 
@@ -109,7 +110,7 @@ namespace Shark.Client
                           });
 
 
-                    new PluginLoader("./plugins").Load(serviceCollection);
+                    new PluginLoader(Path.Combine(AppContext.BaseDirectory, "plugins")).Load(serviceCollection);
 
                     serviceCollection.BuildServiceProvider()
                         .GetRequiredService<IProxyServer>()

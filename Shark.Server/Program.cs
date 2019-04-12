@@ -6,6 +6,7 @@ using Shark.Options;
 using Shark.Plugins;
 using Shark.Server.Net.Internal;
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 
@@ -62,7 +63,7 @@ namespace Shark.Server
                         })
                         .AddTransient<ISharkServer, DefaultSharkServer>();
 
-                    new PluginLoader("./plugins").Load(serviceCollection);
+                    new PluginLoader(Path.Combine(AppContext.BaseDirectory, "plugins")).Load(serviceCollection);
 
                     serviceCollection.BuildServiceProvider()
                         .GetRequiredService<ISharkServer>()
