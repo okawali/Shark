@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!--<AllowUnsafeBlocks>true</AllowUnsafeBlocks>-->
+	<!--<TargetFramework>netcoreapp2.2</TargetFramework>-->
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Shark.Commons\Shark.Commons.csproj" />
