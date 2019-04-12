@@ -38,7 +38,7 @@ namespace Shark.Plugins
                 foreach (var dir in Directory.GetDirectories(SearchPath))
                 {
                     var dirName = Path.GetFileName(dir);
-                    var assemblyDll = Path.Join(dir, dirName, ".dll");
+                    var assemblyDll = Path.Join(dir, dirName + ".dll");
                     if (File.Exists(assemblyDll))
                     {
                         var loader = McMaster.NETCore.Plugins.PluginLoader.CreateFromAssemblyFile(assemblyDll, PluginLoaderOptions.PreferSharedTypes);
