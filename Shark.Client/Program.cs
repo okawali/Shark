@@ -30,7 +30,7 @@ namespace Shark.Client
                     {
                         if (!string.IsNullOrEmpty(path))
                         {
-                            config = path;
+                            config = Path.GetFullPath(path);
                         }
                     }
                 },
