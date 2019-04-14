@@ -11,7 +11,7 @@ namespace Shark.Plugins.Internal
 {
     class DefaultSecurityConfigurationFetcher : ISecurityConfigurationFetcher
     {
-        private const string AUTH_FALLBACK = "simple";
+        private const string AUTH_FALLBACK = "none";
         private const string CRYPTOR_FALLBACK = "aes-256-cbc";
         private const string KEY_GEN_FALLBACK = "scrypt";
 

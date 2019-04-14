@@ -9,28 +9,32 @@ A proxy ng
 1. download packed dotnet tool from release, and install use `dotnet tool` command, nupkg files 
 
 ## how to start
+### cmd
+
 ```sh
-shark-server -h
--a, --addr=VALUE           bind address default='127.0.0.1'
--p, --port=VALUE           bind port default=12306
--b, --backlog=VALUE        accept backlog default use SocketOptionName.MaxConnections
-    --log-level=VALUE      log level, one of 
-			   Trace, Debug, Information, Warning, Error, Critical, None,
-			   default Information
+shark-server | shark -h
+-c, --config=VALUE         config file path, default EXEC_PATH/config.yml
 -h, --help                 show this message and exit
 ```
 
-```sh
-shark -h
-    --local-address=VALUE  bind address default='127.0.0.1'
-    --local-port=VALUE     bind port default=1080
-    --remote-address=VALUE remote address default='127.0.0.1'
-    --remote-port=VALUE    remote port default=12306
-    --protocol=VALUE       proxy protocol socks5 or http, defualt=socks5
-    --backlog=VALUE        accept backlog default use SocketOptionName.MaxConnections
-    --max=VALUE            max client connection count, 0 for unlimited, default 0
-    --log-level=VALUE      log level, one of 
-    			   Trace, Debug, Information, Warning, Error, Critical, None,
-			   default Information
--h, --help                 show this message and exit
+### config
+```yaml
+pluginRoot: ~
+backlog: ~
+logLevel: 2
+
+shark:
+  host: 127.0.0.1
+  port: 12306
+  max: 0
+  auth: none
+  keygen: scrypt
+  crypto: aes-256-cbc
+
+client:
+  host: 127.0.0.1
+  port: 1080
+  protocol: socks5
+
+....
 ```

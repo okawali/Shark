@@ -15,10 +15,15 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shark.Server.Tool", "Shark.
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{D2DBDED8-8CC2-47E3-97F9-F7F8A6CCA8E2}"
 	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+		appveyor.yml = appveyor.yml
+		config.yml = config.yml
 		Directory.Build.props = Directory.Build.props
+		LICENSE = LICENSE
+		README.md = README.md
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shark.Plugins", "Shark.Plugins\Shark.Plugins.csproj", "{79F1BA75-FE9E-43CF-94BC-DB65B3623930}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shark.Plugins", "Shark.Plugins\Shark.Plugins.csproj", "{79F1BA75-FE9E-43CF-94BC-DB65B3623930}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

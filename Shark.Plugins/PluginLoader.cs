@@ -1,4 +1,5 @@
 ﻿using McMaster.NETCore.Plugins;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
@@ -19,13 +20,13 @@ namespace Shark.Plugins
             Plugins.Add(new DefaultPlugin());
         }
 
-        public void Load(IServiceCollection serviceCollection)
+        public void Load(IServiceCollection serviceCollection, IConfiguration configuration)
         {
             LoadPlugins();
 
             foreach (var item in Plugins)
             {
-                item.Configure(serviceCollection);
+                item.Configure(serviceCollection, configuration);
             }
         }
 
