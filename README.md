@@ -19,7 +19,7 @@ shark-server | shark -h
 
 ### config
 ```yaml
-pluginRoot: ${appRoot}\plugins
+pluginRoot: ~
 backlog: ~
 logLevel: 2
 
@@ -34,6 +34,6 @@ shark:
 client:
   host: 127.0.0.1
   port: 1080
-  protocol: socks5
+  protocol: Socks5
 ....
 ```
