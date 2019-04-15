@@ -7,6 +7,7 @@ using Shark.Options;
 using Shark.Plugins;
 using Shark.Server.Net.Internal;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -22,7 +23,7 @@ namespace Shark.Server
 
             var optionSet = new OptionSet()
             {
-               { "c|config=", "config file path, default EXEC_PATH/config.yml", (string path) =>
+               { "c|config=", "config file path, default ${appRoot}/config.yml", (string path) =>
                     {
                         if (!string.IsNullOrEmpty(path))
                         {
@@ -43,6 +44,11 @@ namespace Shark.Server
                 else
                 {
                     var configuration = new ConfigurationBuilder()
+                        .AddInMemoryCollection(new Dictionary<string, string>()
+                        {
+                            ["appRoot"] = Path.GetDirectoryName(AppContext.BaseDirectory),
+                            ["configRoot"] = Path.GetDirectoryName(config)
+                        })
                         .AddYamlFile(config, true, false)
                         .Build();
 
@@ -100,7 +106,7 @@ namespace Shark.Server
                         .AddTransient<ISharkServer, DefaultSharkServer>()
                         .AddSingleton<IConfiguration>(configuration);
 
-                    new PluginLoader(Path.GetFullPath(pluginRoot)).Load(serviceCollection, configuration);
+                    new PluginLoader(pluginRoot).Load(serviceCollection, configuration);
 
                     serviceCollection.BuildServiceProvider()
                         .GetRequiredService<ISharkServer>()

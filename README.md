@@ -13,13 +13,13 @@ A proxy ng
 
 ```sh
 shark-server | shark -h
--c, --config=VALUE         config file path, default EXEC_PATH/config.yml
+-c, --config=VALUE         config file path, default ${appRoot}/config.yml
 -h, --help                 show this message and exit
 ```
 
 ### config
 ```yaml
-pluginRoot: ~
+pluginRoot: ${appRoot}\plugins
 backlog: ~
 logLevel: 2
 
@@ -35,6 +35,5 @@ client:
   host: 127.0.0.1
   port: 1080
   protocol: socks5
-
 ....
 ```
