@@ -30,7 +30,7 @@ namespace Shark.Plugins.Internal
 
             if (service == null)
             {
-                services.LastOrDefault(s => s.Name == fallbackName);
+                service = services.LastOrDefault(s => s.Name == fallbackName);
             }
 
             return service;
