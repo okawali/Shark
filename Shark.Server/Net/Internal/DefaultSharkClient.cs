@@ -1,11 +1,13 @@
 ﻿using Microsoft.Extensions.Logging;
-using Shark.Crypto;
+using Shark.Security.Authentication;
+using Shark.Security.Crypto;
 using Shark.Data;
 using Shark.Net;
 using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using Shark.Security;
 
 namespace Shark.Server.Net.Internal
 {
@@ -15,23 +17,27 @@ namespace Shark.Server.Net.Internal
         public override ILogger Logger { get; }
         public override IServiceProvider ServiceProvider { get; }
 
-        public override ICrypter Crypter { get; }
-
+        public override ICryptor Cryptor { get; }
+        protected override IAuthenticator Authenticator { get; }
         private readonly IKeyGenerator _keyGenerator;
         private readonly object _syncRoot;
         private TcpClient _tcp;
         private NetworkStream _stream;
 
-        public DefaultSharkClient(TcpClient tcp, SharkServer server, IServiceProvider serviceProvider, ILogger<DefaultSharkClient> logger, IKeyGenerator keyGenrator, ICrypter crypter)
+        public DefaultSharkClient(TcpClient tcp, SharkServer server, 
+            IServiceProvider serviceProvider, 
+            ILogger<DefaultSharkClient> logger,
+            ISecurityConfigurationFetcher securityConfigurationFetcher)
             : base(server)
         {
             _tcp = tcp;
             _stream = _tcp.GetStream();
-            Crypter = crypter;
-            _keyGenerator = keyGenrator;
             _syncRoot = new object();
             Logger = logger;
             ServiceProvider = serviceProvider;
+            Cryptor = securityConfigurationFetcher.FetchCryptor();
+            Authenticator = securityConfigurationFetcher.FetchAuthenticator();
+            _keyGenerator = securityConfigurationFetcher.FetchKeyGenerator();
         }
 
         public override async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, int? id = null)
@@ -54,9 +60,9 @@ namespace Shark.Server.Net.Internal
             return _stream.FlushAsync();
         }
 
-        public override async Task<int> ReadAsync(byte[] buffer, int offset, int count)
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer)
         {
-            var readed = await _stream.ReadAsync(buffer, offset, count);
+            var readed = await _stream.ReadAsync(buffer);
             if (readed == 0)
             {
                 CloseConnetion();
@@ -65,9 +71,9 @@ namespace Shark.Server.Net.Internal
             return readed;
         }
 
-        public override Task WriteAsync(byte[] buffer, int offset, int count)
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer)
         {
-            return _stream.WriteAsync(buffer, offset, count);
+            return _stream.WriteAsync(buffer);
         }
 
         private void CloseConnetion()
@@ -112,9 +118,9 @@ namespace Shark.Server.Net.Internal
             }
         }
 
-        public override void ConfigureCrypter(byte[] password)
+        public override void ConfigureCryptor(ReadOnlySpan<byte> password)
         {
-            Crypter.Init(_keyGenerator.Generate(password));
+            Cryptor.Init(_keyGenerator.Generate(password));
         }
     }
 }

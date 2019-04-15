@@ -1,10 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Norgerman.Cryptography.Scrypt;
 using Shark.Constants;
-using Shark.Crypto;
 using Shark.Data;
 using Shark.Net;
+using Shark.Security;
+using Shark.Security.Authentication;
+using Shark.Security.Crypto;
 using Shark.Utils;
 using System;
 using System.Collections.Concurrent;
@@ -32,7 +33,7 @@ namespace Shark.Client
         public int Id { private set; get; }
         public bool Initialized { get; private set; }
         public ILogger Logger { get; }
-        public ICrypter Crypter { get; }
+        public ICryptor Cryptor { get; }
         public bool CanRead => true;
         public bool Disposed { private set; get; }
         public IServiceProvider ServiceProvider { get; }
@@ -45,10 +46,13 @@ namespace Shark.Client
         private readonly object _syncRoot;
         private readonly Timer _disconnectTimer;
         private readonly Timer _closeTimer;
-        private IKeyGenerator _keyGenerator;
+        private readonly IKeyGenerator _keyGenerator;
+        private readonly IAuthenticator _authenticator;
         private int _closeTimerStarted;
 
-        public SharkClient(IServiceProvider serviceProvider, ILogger<SharkClient> logger, IKeyGenerator keyGenerator, ICrypter crypter)
+        public SharkClient(IServiceProvider serviceProvider,
+            ILogger<SharkClient> logger,
+            ISecurityConfigurationFetcher securityConfigurationFetcher)
         {
             var tcp = new TcpClient(AddressFamily.InterNetworkV6);
             tcp.Client.DualMode = true;
@@ -65,42 +69,46 @@ namespace Shark.Client
             _closeTimer = new Timer(OnCloseTimeout, null, Timeout.Infinite, Timeout.Infinite);
             _closeTimerStarted = 0;
             Logger = logger;
-            Crypter = crypter;
             Initialized = false;
-            _keyGenerator = keyGenerator;
+
+            Cryptor = securityConfigurationFetcher.FetchCryptor();
+            _keyGenerator = securityConfigurationFetcher.FetchKeyGenerator();
+            _authenticator = securityConfigurationFetcher.FetchAuthenticator();
         }
 
-        public void ConfigureCrypter(byte[] password)
+        public void ConfigureCryptor(ReadOnlySpan<byte> password)
         {
-            Crypter.Init(_keyGenerator.Generate(password));
+            Cryptor.Init(_keyGenerator.Generate(password));
         }
 
         public void EncryptBlock(ref BlockData block)
         {
-            if (block.Data != null)
-            {
-                block.Data = Crypter?.Encrypt(block.Data) ?? block.Data;
-                block.Length = block.Data.Length;
-            }
+            block.Data = Cryptor?.Encrypt(block.Data.Span) ?? block.Data;
         }
 
         public void DecryptBlock(ref BlockData block)
         {
-            if (block.Data != null && block.IsValid)
+            if (block.IsValid)
             {
-                block.Data = Crypter?.Decrypt(block.Data) ?? block.Data;
-                block.Length = block.Data.Length;
+                block.Data = Cryptor?.Decrypt(block.Data.Span) ?? block.Data;
             }
         }
 
         public async Task Auth()
         {
-            await WriteBlock(new BlockData() { Id = Id, Type = BlockType.HAND_SHAKE });
-            var block = await ReadBlock();
+            BlockData block = new BlockData() { Id = Id, Type = BlockType.HAND_SHAKE, Data = _authenticator.GenerateChallenge() };
+
+            await WriteBlock(block);
+            block = await ReadBlock();
+
+
             if (block.Type != BlockType.HAND_SHAKE || block.Id == 0)
             {
                 throw new SharkException("HandShake Failed, response invalid");
             }
+
+
+            _authenticator.ValidateChallengeResponse(block.Data.Span);
 
             if (Id == 0)
             {
@@ -115,38 +123,32 @@ namespace Shark.Client
             }
 
             block = new BlockData() { Id = Id, Type = BlockType.HAND_SHAKE_RESPONSE };
-            block.Data = ScryptUtil.Scrypt(Guid.NewGuid().ToString(), Guid.NewGuid().ToByteArray(), 1024, 8, 8, 16);
-            block.BodyCrc32 = block.ComputeCrc();
-            block.Length = block.Data.Length;
+            block.Data = _authenticator.GenerateCrypterPassword();
             await WriteBlock(block);
-            ConfigureCrypter(block.Data);
-            block = await ReadBlock();
-            if (block.Type != BlockType.HAND_SHAKE_FINAL)
-            {
-                throw new SharkException("Hand shake failed, response invalid");
-            }
+            ConfigureCryptor(block.Data.Span);
+
             Initialized = true;
         }
 
         public async Task<BlockData> FastConnect(int id, HostData hostData)
         {
             var data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(hostData));
-            var password = ScryptUtil.Scrypt(Guid.NewGuid().ToString(), Guid.NewGuid().ToByteArray(), 1024, 8, 8, 16);
+            var password = _authenticator.GenerateCrypterPassword();
             var block = new BlockData() { Id = id, Type = BlockType.FAST_CONNECT };
-            ConfigureCrypter(password);
+
+            ConfigureCryptor(password);
             block.Data = data;
             EncryptBlock(ref block);
 
-            block.Data = FastConnectUtils.GenerateFastConnectData(Id, password, block.Data);
-            block.Length = block.Data.Length;
-            block.BodyCrc32 = block.ComputeCrc();
-
+            block.Data = FastConnectUtils.GenerateFastConnectData(Id, _authenticator.GenerateChallenge(), password, block.Data.Span);
             await WriteBlock(block);
 
             block = await ReadBlock();
             DecryptBlock(ref block);
 
-            var resultId = BitConverter.ToInt32(block.Data);
+            var resultId = BitConverter.ToInt32(block.Data.Span);
+
+            _authenticator.ValidateChallengeResponse(block.Data.Span.Slice(4));
 
             if (Id == 0)
             {
@@ -171,7 +173,6 @@ namespace Shark.Client
             var block = new BlockData() { Id = id, Type = BlockType.CONNECT };
             block.Data = hostJsonData;
             EncryptBlock(ref block);
-            block.BodyCrc32 = block.ComputeCrc();
             await WriteBlock(block);
         }
 
@@ -247,12 +248,12 @@ namespace Shark.Client
             await _writeSemaphore.WaitAsync();
             try
             {
-                var header = block.GenerateHeader(); ;
-                await WriteAsync(header, 0, header.Length);
+                var header = block.GenerateHeader().ToArray();
+                await WriteAsync(header);
 
-                if ((block.Data?.Length ?? 0) != 0)
+                if (block.Data.Length != 0)
                 {
-                    await WriteAsync(block.Data, 0, block.Data.Length);
+                    await WriteAsync(block.Data);
                 }
                 await FlushAsync();
             }
@@ -263,14 +264,14 @@ namespace Shark.Client
             }
         }
 
-        public Task<int> ReadAsync(byte[] buffer, int offset, int count)
+        public ValueTask<int> ReadAsync(Memory<byte> buffer)
         {
-            return _stream.ReadAsync(buffer, offset, count);
+            return _stream.ReadAsync(buffer);
         }
 
-        public Task WriteAsync(byte[] buffer, int offset, int count)
+        public ValueTask WriteAsync(ReadOnlyMemory<byte> buffer)
         {
-            return _stream.WriteAsync(buffer, offset, count);
+            return _stream.WriteAsync(buffer);
         }
 
         public Task FlushAsync()
@@ -284,7 +285,7 @@ namespace Shark.Client
             var needRead = BlockData.HEADER_SIZE;
             var totalRead = 0;
             var readed = 0;
-            while ((readed = await ReadAsync(header, totalRead, needRead - totalRead)) != 0)
+            while ((readed = await ReadAsync(new Memory<byte>(header, totalRead, needRead - totalRead))) != 0)
             {
                 totalRead += readed;
 
@@ -299,8 +300,8 @@ namespace Shark.Client
                 CloseConnetion();
             }
 
-            var valid = BlockData.TryParseHeader(header, 0, totalRead, out var block);
-  
+            var valid = BlockData.TryParseHeader(new ReadOnlySpan<byte>(header, 0, totalRead), out var block);
+
             if (!valid)
             {
                 block.Type = BlockType.INVALID;
@@ -320,7 +321,7 @@ namespace Shark.Client
             var totalReaded = 0;
             var readed = 0;
 
-            while ((readed = await ReadAsync(data, totalReaded, length - totalReaded)) != 0)
+            while ((readed = await ReadAsync(new Memory<byte>(data, totalReaded, length - totalReaded))) != 0)
             {
                 totalReaded += readed;
 
@@ -390,7 +391,6 @@ namespace Shark.Client
             var data = JsonConvert.SerializeObject(ids);
             block.Data = Encoding.UTF8.GetBytes(data);
             EncryptBlock(ref block);
-            block.BodyCrc32 = block.ComputeCrc();
             Logger.LogDebug("Disconnet {0}", data);
             await WriteBlock(block);
         }

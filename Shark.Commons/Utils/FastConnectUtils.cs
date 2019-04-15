@@ -5,30 +5,41 @@ namespace Shark.Utils
 {
     public static class FastConnectUtils
     {
-        public static unsafe byte[] GenerateFastConnectData(int id, byte[] password, byte[] encryptedData)
+        public static unsafe byte[] GenerateFastConnectData(int id, ReadOnlySpan<byte> challenge, ReadOnlySpan<byte> password, ReadOnlySpan<byte> encryptedData)
         {
-            //|--id(4)--|--passwordlength(4, le)--|--password--|--data--|
-            var result = new byte[8 + password.Length + encryptedData.Length];
-            Array.Copy(password, 0, result, 8, password.Length);
-            Array.Copy(encryptedData, 0, result, password.Length + 8, encryptedData.Length);
+            //|--id(4)--|---challengeLength(4, le)----|------challenge-------|----passwordlength(4, le)--|--password--|--data--|
+            var result = new byte[12 + challenge.Length + password.Length + encryptedData.Length];
+
+            challenge.CopyTo(new Span<byte>(result, 8, challenge.Length));
+            password.CopyTo(new Span<byte>(result, 12 + challenge.Length, password.Length));
+            encryptedData.CopyTo(new Span<byte>(result, 12 + challenge.Length + password.Length, encryptedData.Length));
+
             fixed (byte* ptr = result)
             {
                 int* gPtr = (int*)ptr;
                 gPtr[0] = id;
-                int* iPtr = (int*)(ptr + 4);
-                iPtr[0] = password.Length;
+
+                gPtr = (int*)(ptr + 4);
+                gPtr[0] = challenge.Length;
+
+                gPtr = (int*)(ptr + 8 + challenge.Length);
+                gPtr[0] = password.Length;
             }
             return result;
         }
 
-        public static (int id, byte[] password, byte[] encryptedData) ParseFactConnectData(byte[] data)
+        public static (int id, ReadOnlyMemory<byte> challenge, ReadOnlyMemory<byte> password, ReadOnlyMemory<byte> encryptedData) ParseFactConnectData(ReadOnlyMemory<byte> data)
         {
-            var id = BitConverter.ToInt32(data);
-            var len = BitConverter.ToInt32(data, 4);
-            var password = data.Skip(8).Take(len).ToArray();
-            var encryptedData = data.Skip(len + 8).ToArray();
+            var id = BitConverter.ToInt32(data.Span);
+            var challengeLength = BitConverter.ToInt32(data.Span.Slice(4, 4));
+            var passwordLength = BitConverter.ToInt32(data.Span.Slice(8 + challengeLength, 4));
 
-            return (id, password, encryptedData);
+            return (
+                    id,
+                    data.Slice(8, challengeLength),
+                    data.Slice(12 + challengeLength, passwordLength),
+                    data.Slice(12 + challengeLength + passwordLength)
+                   );
         }
     }
 }

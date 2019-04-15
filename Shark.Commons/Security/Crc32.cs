@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Security.Cryptography;
 
-namespace Shark.Crypto
+namespace Shark.Security
 {
     public class Crc32 : HashAlgorithm
     {

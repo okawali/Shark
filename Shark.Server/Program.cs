@@ -1,12 +1,14 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Mono.Options;
-using Shark.Constants;
-using Shark.Crypto;
 using Shark.Net.Server;
 using Shark.Options;
+using Shark.Plugins;
 using Shark.Server.Net.Internal;
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 
@@ -16,21 +18,19 @@ namespace Shark.Server
     {
         private static void Main(string[] args)
         {
-            var address = "127.0.0.1";
-            var port = 12306;
+            var config = Path.Combine(AppContext.BaseDirectory, "config.yml");
             var showHelp = false;
-            var backlog = (int)SocketOptionName.MaxConnections;
-#if DEBUG
-            var logLevel = LogLevel.Debug;
-#else
-            var logLevel = LogLevel.Information;
-#endif
+
             var optionSet = new OptionSet()
             {
-                { "a|addr=", "bind address default='127.0.0.1'", addr => address = addr },
-                { "p|port=", "bind port default=12306", (int p) => port = p },
-                { "b|backlog=", "accept backlog default use SocketOptionName.MaxConnections", (int b) => backlog = b },
-                { "log-level=", $"log level,{Environment.NewLine}one of {string.Join(", ", Enum.GetNames(typeof(LogLevel)))}, {Environment.NewLine}default Information", (string s) => Enum.TryParse(s, true, out logLevel) },
+               { "c|config=", "config file path, default ${appRoot}/config.yml", (string path) =>
+                    {
+                        if (!string.IsNullOrEmpty(path))
+                        {
+                            config = Path.GetFullPath(path);
+                        }
+                    }
+                },
                 { "h|help", "show this message and exit",  h => showHelp = h != null },
             };
 
@@ -43,24 +43,73 @@ namespace Shark.Server
                 }
                 else
                 {
-                    var serviceProvider = new ServiceCollection()
+                    var configuration = new ConfigurationBuilder()
+                        .AddInMemoryCollection(new Dictionary<string, string>()
+                        {
+                            ["appRoot"] = Path.GetDirectoryName(AppContext.BaseDirectory),
+                            ["configRoot"] = Path.GetDirectoryName(config)
+                        })
+                        .AddYamlFile(config, true, false)
+                        .Build();
+
+                    if (!int.TryParse(configuration["backlog"], out int backlog))
+                    {
+                        backlog = (int)SocketOptionName.MaxConnections;
+                    }
+
+                    if (!ushort.TryParse(configuration["shark:port"], out var port))
+                    {
+                        port = 12306;
+                    }
+
+                    var address = configuration["shark:host"];
+
+                    if (string.IsNullOrEmpty(address))
+                    {
+                        address = "127.0.0.1";
+                    }
+
+                    if (!Enum.TryParse<LogLevel>(configuration["logLevel"], out var logLevel))
+                    {
+#if DEBUG
+                        logLevel = LogLevel.Debug;
+#else
+                        logLevel = LogLevel.Information;
+#endif
+                    }
+
+                    var pluginRoot = configuration["pluginRoot"];
+
+                    if (string.IsNullOrEmpty(pluginRoot))
+                    {
+                        pluginRoot = Path.Combine(AppContext.BaseDirectory, "plugins");
+                    }
+
+                    var serviceCollection = new ServiceCollection()
                         .AddOptions()
                         .Configure<BindingOptions>(option =>
                         {
                             option.EndPoint = new IPEndPoint(IPAddress.Parse(address), port);
                             option.Backlog = backlog;
                         })
+                        .Configure<SecurityOptions>(options =>
+                        {
+                            options.AuthenticatorName = configuration["shark:auth"];
+                            options.KeyGeneratorName = configuration["shark:keygen"];
+                            options.CryptorName = configuration["shark:crypto"];
+                        })
                         .AddLogging(builder =>
                         {
                             builder.AddConsole();
                             builder.SetMinimumLevel(logLevel);
                         })
-                        .AddSingleton<IKeyGenerator, ScryptKeyGenerator>()
-                        .AddScoped<ICrypter, AesCrypter>()
                         .AddTransient<ISharkServer, DefaultSharkServer>()
-                        .BuildServiceProvider();
+                        .AddSingleton<IConfiguration>(configuration);
 
-                    serviceProvider.GetRequiredService<ISharkServer>()
+                    new PluginLoader(pluginRoot).Load(serviceCollection, configuration);
+
+                    serviceCollection.BuildServiceProvider()
+                        .GetRequiredService<ISharkServer>()
                         .OnClientConnected(async client =>
                         {
                             try

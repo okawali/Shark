@@ -46,9 +46,9 @@ namespace Shark.Server.Net.Internal
             return _stream.FlushAsync();
         }
 
-        public async Task<int> ReadAsync(byte[] buffer, int offset, int count)
+        public async ValueTask<int> ReadAsync(Memory<byte> buffer)
         {
-            var readed = await _stream.ReadAsync(buffer, offset, count);
+            var readed = await _stream.ReadAsync(buffer);
             if (readed == 0)
             {
                 CloseConnetion();
@@ -57,9 +57,9 @@ namespace Shark.Server.Net.Internal
             return readed;
         }
 
-        public Task WriteAsync(byte[] buffer, int offset, int count)
+        public ValueTask WriteAsync(ReadOnlyMemory<byte> buffer)
         {
-            return _stream.WriteAsync(buffer, offset, count);
+            return _stream.WriteAsync(buffer);
         }
 
         private void CloseConnetion()

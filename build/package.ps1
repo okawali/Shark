@@ -8,6 +8,7 @@ dotnet publish -c Release -r ubuntu.18.04-x64 Shark.Client
 
 dotnet pack -c Release Shark.Client.Tool
 dotnet pack -c Release Shark.Server.Tool
+dotnet pack -c Release Shark.Commons
 
 Add-Type -A System.IO.Compression.FileSystem
 
@@ -44,3 +45,4 @@ $outPath = Join-Path (Get-Item -Path ".\").FullName 'shark-ubuntu.18.04-x64.zip'
 #tool packages
 Move-Item 'Shark.Client.Tool\bin\Release\*.nupkg' .\
 Move-Item 'Shark.Server.Tool\bin\Release\*.nupkg' .\
+Move-Item 'Shark.Commons\bin\Release\*.nupkg' .\

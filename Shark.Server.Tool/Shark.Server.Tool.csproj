@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="..\Shark.Server\Shark.Server.Project.props" />
   <PropertyGroup>
-    <TargetFramework>netcoreapp2.2</TargetFramework>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>shark-server</ToolCommandName>
   </PropertyGroup>

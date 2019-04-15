@@ -12,8 +12,8 @@ namespace Shark.Net
         ILogger Logger { get; }
         event Action<ISocketClient> RemoteDisconnected;
 
-        Task<int> ReadAsync(byte[] buffer, int offset, int count);
-        Task WriteAsync(byte[] buffer, int offset, int count);
+        ValueTask<int> ReadAsync(Memory<byte> buffer);
+        ValueTask WriteAsync(ReadOnlyMemory<byte> buffer);
         Task FlushAsync();
     }
 }

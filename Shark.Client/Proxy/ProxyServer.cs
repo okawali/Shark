@@ -102,7 +102,7 @@ namespace Shark.Client.Proxy
                         shark.DecryptBlock(ref block);
                         if (block.Type == BlockType.DISCONNECT)
                         {
-                            var idData = Encoding.UTF8.GetString(block.Data);
+                            var idData = Encoding.UTF8.GetString(block.Data.Span);
                             var ids = JsonConvert.DeserializeObject<List<int>>(idData);
                             Logger.LogDebug("Remote request disconnect {0}", idData);
                             foreach (var id in ids)

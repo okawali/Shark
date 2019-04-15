@@ -1,15 +1,18 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Mono.Options;
 using Shark.Client.Proxy;
 using Shark.Client.Proxy.Http;
 using Shark.Client.Proxy.Socks5;
-using Shark.Crypto;
 using Shark.Data;
 using Shark.Net;
 using Shark.Net.Client;
 using Shark.Options;
+using Shark.Plugins;
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 
@@ -19,42 +22,19 @@ namespace Shark.Client
     {
         private static void Main(string[] args)
         {
-            var localPort = 1080;
-            var localAddr = "127.0.0.1";
-            var remoteAddr = "127.0.0.1";
-            var remotePort = 12306;
+            var config = Path.Combine(AppContext.BaseDirectory, "config.yml");
             var showHelp = false;
-            var maxCount = 0;
-            var protocol = ProxyProtocol.Socks5;
-            var backlog = (int)SocketOptionName.MaxConnections;
-#if DEBUG
-            var logLevel = LogLevel.Debug;
-#else
-            var logLevel = LogLevel.Information;
-#endif
+
             var optionSet = new OptionSet()
             {
-                { "local-address=", "bind address default='127.0.0.1'", addr => localAddr = addr },
-                { "local-port=", "bind port default=1080", (int p) => localPort = p },
-                { "remote-address=", "remote address default='127.0.0.1'", addr => remoteAddr = addr },
-                { "remote-port=", "remote port default=12306", (int p) => remotePort = p },
-                { "protocol=", "proxy protocol socks5 or http, defualt=socks5", p =>
+                { "c|config=", "config file path, default ${appRoot}/config.yml", (string path) =>
                     {
-                        var lowerArray = p.ToLower().ToCharArray();
-                        lowerArray[0] = (char)(lowerArray[0] - 32);
-                        if (Enum.TryParse<ProxyProtocol>(new string(lowerArray), out var proto))
+                        if (!string.IsNullOrEmpty(path))
                         {
-                            protocol = proto;
-                        }
-                        else
-                        {
-                            throw new OptionException("protocol not supported", "--protocol=");
+                            config = Path.GetFullPath(path);
                         }
                     }
                 },
-                { "backlog=", "accept backlog default use SocketOptionName.MaxConnections", (int b) => backlog = b },
-                { "max=", "max client connection count, 0 for unlimited, default 0", (int p) =>  maxCount = p },
-                { "log-level=", $"log level,{Environment.NewLine}one of {string.Join(", ", Enum.GetNames(typeof(LogLevel)))}, {Environment.NewLine}default Information", (string s) => Enum.TryParse(s, true, out logLevel) },
                 { "h|help", "show this message and exit",  h => showHelp = h != null }
             };
 
@@ -63,7 +43,73 @@ namespace Shark.Client
                 optionSet.Parse(args);
                 if (!showHelp)
                 {
-                    var serviceProvider = new ServiceCollection()
+                    var configuration = new ConfigurationBuilder()
+                        .AddInMemoryCollection(new Dictionary<string, string>()
+                        {
+                            ["appRoot"] = Path.GetDirectoryName(AppContext.BaseDirectory),
+                            ["configRoot"] = Path.GetDirectoryName(config)
+                        })
+                        .AddYamlFile(config, true, false)
+                        .Build();
+
+                    if (!int.TryParse(configuration["backlog"], out int backlog))
+                    {
+                        backlog = (int)SocketOptionName.MaxConnections;
+                    }
+
+                    if (!Enum.TryParse<LogLevel>(configuration["logLevel"], out var logLevel))
+                    {
+#if DEBUG
+                        logLevel = LogLevel.Debug;
+#else
+                        logLevel = LogLevel.Information;
+#endif
+                    }
+
+                    if (!ushort.TryParse(configuration["client:port"], out var localPort))
+                    {
+                        localPort = 1080;
+                    }
+
+                    var localAddr = configuration["client:host"];
+
+                    if (string.IsNullOrEmpty(localAddr))
+                    {
+                        localAddr = "127.0.0.1";
+                    }
+
+                    if (!Enum.TryParse<ProxyProtocol>(configuration["client:protocol"], out var protocol))
+                    {
+                        protocol = ProxyProtocol.Socks5;
+                    }
+
+
+                    if (!ushort.TryParse(configuration["shark:port"], out var remotePort))
+                    {
+                        remotePort = 1080;
+                    }
+
+                    var remoteAddr = configuration["shark:host"];
+
+                    if (string.IsNullOrEmpty(localAddr))
+                    {
+                        remoteAddr = "127.0.0.1";
+                    }
+
+                    if (!int.TryParse(configuration["shark:max"], out var maxCount))
+                    {
+                        maxCount = 0;
+                    }
+
+                    var pluginRoot = configuration["pluginRoot"];
+
+                    if (string.IsNullOrEmpty(pluginRoot))
+                    {
+                        pluginRoot = Path.Combine(AppContext.BaseDirectory, "plugins");
+                    }
+
+
+                    var serviceCollection = new ServiceCollection()
                           .AddOptions()
                           .Configure<BindingOptions>(option =>
                           {
@@ -75,17 +121,21 @@ namespace Shark.Client
                               options.Remote = new HostData()
                               {
                                   Address = remoteAddr,
-                                  Port = (ushort)remotePort,
+                                  Port = remotePort,
                               };
                               options.MaxClientCount = maxCount;
+                          })
+                          .Configure<SecurityOptions>(options =>
+                          {
+                              options.AuthenticatorName = configuration["shark:auth"];
+                              options.KeyGeneratorName = configuration["shark:keygen"];
+                              options.CryptorName = configuration["shark:crypto"];
                           })
                           .AddLogging(builder =>
                           {
                               builder.AddConsole();
                               builder.SetMinimumLevel(logLevel);
                           })
-                          .AddSingleton<IKeyGenerator, ScryptKeyGenerator>()
-                          .AddScoped<ICrypter, AesCrypter>()
                           .AddScoped<ISharkClient, SharkClient>()
                           .AddTransient(provider =>
                           {
@@ -103,9 +153,13 @@ namespace Shark.Client
                               }
                               return server;
                           })
-                          .BuildServiceProvider();
+                          .AddSingleton<IConfiguration>(configuration);
 
-                    serviceProvider.GetRequiredService<IProxyServer>()
+
+                    new PluginLoader(pluginRoot).Load(serviceCollection, configuration);
+
+                    serviceCollection.BuildServiceProvider()
+                        .GetRequiredService<IProxyServer>()
                         .Start()
                         .Wait();
                 }

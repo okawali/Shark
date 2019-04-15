@@ -5,7 +5,6 @@ using Shark.Data;
 using Shark.Net;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -39,7 +38,7 @@ namespace Shark.Server
 #pragma warning restore CS4014
                             else if (block.Type == BlockType.DISCONNECT)
                             {
-                                var ids = JsonConvert.DeserializeObject<List<int>>(Encoding.UTF8.GetString(block.Data));
+                                var ids = JsonConvert.DeserializeObject<List<int>>(Encoding.UTF8.GetString(block.Data.Span));
                                 foreach (var id in ids)
                                 {
                                     if (client.RemoteClients.TryGetValue(id, out var item))
@@ -61,18 +60,27 @@ namespace Shark.Server
             .Unwrap();
         }
 
-        public static async Task ProcessConnect(this ISharkClient client, BlockData block, bool isFastConnect = false)
+        public static async Task ProcessConnect(this ISharkClient client, BlockData block, bool isFastConnect = false, byte[] challengeResp = null)
         {
             ISocketClient remote = null;
             BlockData resp = new BlockData() { Type = BlockType.CONNECTED, Id = block.Id };
             if (isFastConnect)
             {
-                resp.Data = BitConverter.GetBytes(client.Id);
+                if (challengeResp == null)
+                {
+                    throw new ArgumentNullException(nameof(challengeResp), "challege response cannot be null in fast conenct request");
+                }
+                var buffer = new byte[4 + challengeResp.Length];
+
+                BitConverter.TryWriteBytes(buffer, client.Id);
+                challengeResp.CopyTo(buffer, 4);
+
+                resp.Data = buffer;
             }
             try
             {
                 client.Logger.LogInformation("Process connect {0}", block.Id);
-                var host = JsonConvert.DeserializeObject<HostData>(Encoding.UTF8.GetString(block.Data));
+                var host = JsonConvert.DeserializeObject<HostData>(Encoding.UTF8.GetString(block.Data.Span));
                 remote = await client.ConnectTo(host.Address, host.Port, host.Type, block.Id);
                 client.Logger.LogInformation("Connected {0}", block.Id);
             }
@@ -90,7 +98,6 @@ namespace Shark.Server
             try
             {
                 client.EncryptBlock(ref resp);
-                resp.BodyCrc32 = resp.ComputeCrc();
                 await client.WriteBlock(resp);
                 if (resp.Type == BlockType.CONNECTED)
                 {
@@ -110,7 +117,7 @@ namespace Shark.Server
             {
                 try
                 {
-                    await http.WriteAsync(block.Data, 0, block.Data.Length);
+                    await http.WriteAsync(block.Data);
                 }
                 catch (Exception)
                 {
@@ -131,7 +138,7 @@ namespace Shark.Server
                 try
                 {
                     var readed = 0;
-                    while ((readed = await socketClient.ReadAsync(buffer, 0, BUFFER_SIZE)) != 0)
+                    while ((readed = await socketClient.ReadAsync(buffer)) != 0)
                     {
                         var block = new BlockData()
                         {
@@ -141,9 +148,10 @@ namespace Shark.Server
                             BlockNumber = number++,
                             Type = BlockType.DATA
                         };
-                        Buffer.BlockCopy(buffer, 0, block.Data, 0, readed);
+
+                        new ReadOnlyMemory<byte>(buffer, 0, readed).CopyTo(block.Data);
+
                         client.EncryptBlock(ref block);
-                        block.BodyCrc32 = block.ComputeCrc();
                         await client.WriteBlock(block);
                     }
                     socketClient.Logger.LogInformation("Remote closed {0}", socketClient.Id);

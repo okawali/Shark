@@ -50,7 +50,7 @@ namespace Shark.Client.Proxy.Http
                     };
 
                     var respData = Encoding.ASCII.GetBytes(resp.ToString());
-                    await WriteAsync(respData, 0, respData.Length);
+                    await WriteAsync(respData);
                     await FlushAsync();
                 }
                 else
@@ -58,7 +58,6 @@ namespace Shark.Client.Proxy.Http
                     var headerBlock = new BlockData() { Id = Id, BlockNumber = 0, Type = BlockType.DATA };
                     headerBlock.Data = _request.GenerateHttpHeader();
                     Shark.EncryptBlock(ref headerBlock);
-                    headerBlock.BodyCrc32 = headerBlock.ComputeCrc();
                     await Shark.WriteBlock(headerBlock);
                 }
 
@@ -76,7 +75,7 @@ namespace Shark.Client.Proxy.Http
                 };
                 var respData = Encoding.ASCII.GetBytes(resp.ToString());
 
-                await WriteAsync(respData, 0, respData.Length);
+                await WriteAsync(respData);
                 await FlushAsync();
 
                 _pipe.Reader.Complete();
@@ -87,7 +86,7 @@ namespace Shark.Client.Proxy.Http
             }
             else if (block.Type == BlockType.DATA)
             {
-                await WriteAsync(block.Data, 0, block.Data.Length);
+                await WriteAsync(block.Data);
                 await FlushAsync();
             }
 
@@ -176,7 +175,7 @@ namespace Shark.Client.Proxy.Http
             {
                 resp.Status = HttpProxyStatus.BAD_GATEWAY;
                 var respData = Encoding.ASCII.GetBytes(resp.ToString());
-                await WriteAsync(respData, 0, respData.Length);
+                await WriteAsync(respData);
                 await FlushAsync();
 
                 reader.Complete();
@@ -187,7 +186,7 @@ namespace Shark.Client.Proxy.Http
             {
                 resp.Status = HttpProxyStatus.NOT_IMPLEMENTED;
                 var respData = Encoding.ASCII.GetBytes(resp.ToString());
-                await WriteAsync(respData, 0, respData.Length);
+                await WriteAsync(respData);
                 await FlushAsync();
 
                 reader.Complete();
@@ -265,7 +264,6 @@ namespace Shark.Client.Proxy.Http
 
                         block.Data = copyedBuffer;
                         Shark.EncryptBlock(ref block);
-                        block.BodyCrc32 = block.ComputeCrc();
                         await Shark.WriteBlock(block);
                     }
                 }
@@ -317,22 +315,22 @@ namespace Shark.Client.Proxy.Http
             }
         }
 
-        public override async Task<int> ReadAsync(byte[] buffer, int offset, int count)
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer)
         {
             var read = await _pipe.Reader.ReadAsync();
-            var readed = Math.Min(read.Buffer.Length, count);
+            var readed = Math.Min(read.Buffer.Length, buffer.Length);
             var data = read.Buffer.Slice(0, readed);
 
-            data.CopyTo(new Span<byte>(buffer, offset, count));
+            data.CopyTo(buffer.Span);
 
             _pipe.Reader.AdvanceTo(data.End);
 
             return (int)readed;
         }
 
-        public override Task WriteAsync(byte[] buffer, int offset, int count)
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer)
         {
-            return _stream.WriteAsync(buffer, offset, count);
+            return _stream.WriteAsync(buffer);
         }
 
         public override Task FlushAsync()

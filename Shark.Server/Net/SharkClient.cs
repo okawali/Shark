@@ -1,10 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Shark.Constants;
-using Shark.Crypto;
 using Shark.Data;
 using Shark.Net;
 using Shark.Net.Server;
+using Shark.Security.Authentication;
+using Shark.Security.Crypto;
 using Shark.Utils;
 using System;
 using System.Collections.Concurrent;
@@ -27,8 +28,9 @@ namespace Shark.Server.Net
         public bool Disposed { get; private set; } = false;
         public bool Initialized => true;
 
-        public abstract ICrypter Crypter { get; }
+        public abstract ICryptor Cryptor { get; }
         public abstract IServiceProvider ServiceProvider { get; }
+        protected abstract IAuthenticator Authenticator { get; }
 
         public abstract event Action<ISocketClient> RemoteDisconnected;
 
@@ -63,14 +65,13 @@ namespace Shark.Server.Net
             await _writeSemaphore.WaitAsync();
             try
             {
-                var header = block.GenerateHeader();
-                await WriteAsync(header, 0, header.Length);
+                var header = block.GenerateHeader().ToArray();
 
-                if ((block.Data?.Length ?? 0) != 0)
-                {
-                    await WriteAsync(block.Data, 0, block.Data.Length);
-                }
+                await WriteAsync(header);
+                await WriteAsync(block.Data);
+
                 await FlushAsync();
+
                 Logger.LogDebug("Write {0}", block);
             }
             finally
@@ -81,19 +82,14 @@ namespace Shark.Server.Net
 
         public void EncryptBlock(ref BlockData block)
         {
-            if (block.Data != null)
-            {
-                block.Data = Crypter?.Encrypt(block.Data) ?? block.Data;
-                block.Length = block.Data.Length;
-            }
+            block.Data = Cryptor?.Encrypt(block.Data.Span) ?? block.Data;
         }
 
         public void DecryptBlock(ref BlockData block)
         {
-            if (block.Data != null && block.IsValid)
+            if (block.IsValid)
             {
-                block.Data = Crypter?.Decrypt(block.Data) ?? block.Data;
-                block.Length = block.Data.Length;
+                block.Data = Cryptor?.Decrypt(block.Data.Span) ?? block.Data;
             }
         }
 
@@ -113,7 +109,7 @@ namespace Shark.Server.Net
             var needRead = BlockData.HEADER_SIZE;
             var totalRead = 0;
             var readed = 0;
-            while ((readed = await ReadAsync(header, totalRead, needRead - totalRead)) != 0)
+            while ((readed = await ReadAsync(new Memory<byte>(header, totalRead, needRead - totalRead))) != 0)
             {
                 totalRead += readed;
 
@@ -123,7 +119,7 @@ namespace Shark.Server.Net
                 }
             }
 
-            var valid = BlockData.TryParseHeader(header, 0, totalRead, out var block);
+            var valid = BlockData.TryParseHeader(new ReadOnlySpan<byte>(header, 0, totalRead), out var block);
 
             if (!valid)
             {
@@ -144,7 +140,7 @@ namespace Shark.Server.Net
             var totalReaded = 0;
             var readed = 0;
 
-            while ((readed = await ReadAsync(data, totalReaded, length - totalReaded)) != 0)
+            while ((readed = await ReadAsync(new Memory<byte>(data, totalReaded, length - totalReaded))) != 0)
             {
                 totalReaded += readed;
 
@@ -163,7 +159,6 @@ namespace Shark.Server.Net
             var data = JsonConvert.SerializeObject(ids);
             block.Data = Encoding.UTF8.GetBytes(data);
             EncryptBlock(ref block);
-            block.BodyCrc32 = block.ComputeCrc();
             Logger.LogDebug("Disconnet {0}", data);
             await WriteBlock(block);
         }
@@ -243,31 +238,35 @@ namespace Shark.Server.Net
             var block = await ReadBlock();
             if (block.Type == BlockType.HAND_SHAKE)
             {
+                var resp = Authenticator.ValidateChallenge(block.Data.Span);
+
                 if (block.Id != 0)
                 {
                     ChangeId(block.Id);
                 }
-                block = new BlockData() { Id = Id, Type = BlockType.HAND_SHAKE };
+
+                block = new BlockData() { Id = Id, Type = BlockType.HAND_SHAKE, Data = resp };
                 await WriteBlock(block);
+
                 block = await ReadBlock();
-                ConfigureCrypter(block.Data);
-                block = new BlockData { Id = Id, Type = BlockType.HAND_SHAKE_FINAL };
-                await WriteBlock(block);
+
+                ConfigureCryptor(block.Data.Span);
             }
             else if (block.Type == BlockType.FAST_CONNECT)
             {
                 var data = block.Data;
-                var (id, password, encryptedData) = FastConnectUtils.ParseFactConnectData(data);
-                this.ConfigureCrypter(password);
-                block.Data = encryptedData;
+                var (id, challenge, password, encryptedData) = FastConnectUtils.ParseFactConnectData(data);
+                ConfigureCryptor(password.Span);
+                block.Data = encryptedData.ToArray();
                 DecryptBlock(ref block);
+
                 if (id != 0)
                 {
                     ChangeId(id);
                 }
 
 #pragma warning disable CS4014 // no wait the http connecting
-                this.ProcessConnect(block, true);
+                this.ProcessConnect(block, true, Authenticator.ValidateChallenge(challenge.Span));
 #pragma warning restore CS4014
             }
         }
@@ -311,11 +310,11 @@ namespace Shark.Server.Net
         }
         #endregion
 
-        public abstract Task<int> ReadAsync(byte[] buffer, int offset, int count);
-        public abstract Task WriteAsync(byte[] buffer, int offset, int count);
+        public abstract ValueTask<int> ReadAsync(Memory<byte> buffer);
+        public abstract ValueTask WriteAsync(ReadOnlyMemory<byte> buffer);
         public abstract Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, int? id = null);
         public abstract Task FlushAsync();
-        public abstract void ConfigureCrypter(byte[] password);
+        public abstract void ConfigureCryptor(ReadOnlySpan<byte> password);
 
         #region
         public Task<BlockData> FastConnect(int id, HostData hostData)

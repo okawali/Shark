@@ -1,10 +1,11 @@
 ﻿using Norgerman.Cryptography.Scrypt;
+using Shark.Security.Crypto;
 using System;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 
-namespace Shark.Crypto
+namespace Shark.Plugins.Internal
 {
     /// <summary>
     /// Provider AES crypt service
@@ -13,14 +14,14 @@ namespace Shark.Crypto
     /// default mode is cbc
     /// default paddingmode is pkcs7
     /// </summary>
-    public sealed class AesCrypter : Aes, ICrypter
+    sealed class AesCryptor : Aes, ICryptor
     {
         public string Name => "aes-256-cbc";
 
         /// <summary>
         /// Create a instance use random key and iv
         /// </summary>
-        public AesCrypter()
+        public AesCryptor()
             : base()
         {
             this.Mode = CipherMode.CBC;
@@ -34,7 +35,7 @@ namespace Shark.Crypto
         /// </summary>
         /// <param name="key">Key</param>
         /// <param name="iv">IV</param>
-        public AesCrypter(byte[] key, byte[] iv)
+        public AesCryptor(byte[] key, byte[] iv)
             : base()
         {
             this.Mode = CipherMode.CBC;

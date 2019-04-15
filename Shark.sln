@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26730.3
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28729.10
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shark.Server", "Shark.Server\Shark.Server.csproj", "{08971640-D508-4CA1-BC0E-5A2BB094403A}"
 EndProject
@@ -15,8 +15,15 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shark.Server.Tool", "Shark.
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{D2DBDED8-8CC2-47E3-97F9-F7F8A6CCA8E2}"
 	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+		appveyor.yml = appveyor.yml
+		config.yml = config.yml
 		Directory.Build.props = Directory.Build.props
+		LICENSE = LICENSE
+		README.md = README.md
 	EndProjectSection
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shark.Plugins", "Shark.Plugins\Shark.Plugins.csproj", "{79F1BA75-FE9E-43CF-94BC-DB65B3623930}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -44,6 +51,10 @@ Global
 		{6AA59A81-6FC7-47E7-9A9D-09A53E0B0EBB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6AA59A81-6FC7-47E7-9A9D-09A53E0B0EBB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6AA59A81-6FC7-47E7-9A9D-09A53E0B0EBB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{79F1BA75-FE9E-43CF-94BC-DB65B3623930}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{79F1BA75-FE9E-43CF-94BC-DB65B3623930}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{79F1BA75-FE9E-43CF-94BC-DB65B3623930}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{79F1BA75-FE9E-43CF-94BC-DB65B3623930}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

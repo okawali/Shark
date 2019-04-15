@@ -53,7 +53,7 @@ namespace Shark.Server.Net.Internal
             return Task.FromResult(0);
         }
 
-        public async Task<int> ReadAsync(byte[] buffer, int offset, int count)
+        public async ValueTask<int> ReadAsync(Memory<byte> buffer)
         {
             var readTask = _udp.ReceiveAsync();
             var complete = await Task.WhenAny(readTask, Task.Delay(TimeSpan.FromSeconds(30)));
@@ -65,37 +65,31 @@ namespace Shark.Server.Net.Internal
             }
 
             var result = readTask.Result;
-            if (_endPointMap.TryGetValue(result.RemoteEndPoint, out var remote))
-            {
-                //
-            }
-            else
+            if (!_endPointMap.TryGetValue(result.RemoteEndPoint, out var remote))
             {
                 remote = lastRemote;
             }
+
             var resultBytes = new UdpPackData()
             {
                 Data = result.Buffer,
                 Remote = remote
             }.ToBytes();
 
-            if (count < resultBytes.Length)
+            if (buffer.Length < resultBytes.Length)
             {
                 return 0;
             }
 
-            Buffer.BlockCopy(resultBytes, 0, buffer, offset, resultBytes.Length);
+            resultBytes.CopyTo(buffer);
+
             return resultBytes.Length;
         }
 
-        public async Task WriteAsync(byte[] buffer, int offset, int count)
+        public async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer)
         {
             var packData = UdpPackData.Parse(buffer);
-            if (_addressMap.TryGetValue(packData.Remote, out var endPoint))
-            {
-                //
-            }
-            else
+            if (!_addressMap.TryGetValue(packData.Remote, out var endPoint))
             {
                 if (IPAddress.TryParse(packData.Remote.Address, out var address))
                 {

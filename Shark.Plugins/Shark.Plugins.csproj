@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+	<!--<TargetFramework>netcoreapp2.2</TargetFramework>-->
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Shark.Commons\Shark.Commons.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="McMaster.NETCore.Plugins" Version="0.2.4" />
+    <PackageReference Include="Norgerman.Cryptography.Scrypt" Version="2.0.1" />
+  </ItemGroup>
+</Project>

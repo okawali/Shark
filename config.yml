@@ -1,0 +1,16 @@
+pluginRoot: ${appRoot}/plugins
+backlog: ~
+logLevel: 2
+
+shark:
+  host: 127.0.0.1
+  port: 12306
+  max: 0
+  auth: none
+  keygen: scrypt
+  crypto: aes-256-cbc
+
+client:
+  host: 127.0.0.1
+  port: 1080
+  protocol: socks5
