@@ -14,7 +14,7 @@ artifacts:
 deploy:
   provider: GitHub
   auth_token:
-    secure: 2bhzwda2nhlr7agSQL96Lu81Hsmxdod21jyXjEXX36DYM1d8L8bIW5hNGb5hOCL0
+    secure: WuSwaTibZuolXKreU6fBS2JH/+y9QdPZFJ73kVMXWLocILIGT1H75X5TryK9IInq
   draft: false
   artifact: appNugetPackages,appNativePackages
   prerelease: false
