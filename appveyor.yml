@@ -6,7 +6,10 @@ build_script:
   - ps: .\build\package.ps1
 
 artifacts:
-  - path: /.*\.(zip|nupkg)/
+  - path: '*.zip'
+    name: appNativePackages
+  - path: '*.nupkg'
+    name: appNugetPackages
     
 deploy:
   provider: GitHub
