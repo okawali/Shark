@@ -4,8 +4,6 @@ clone_depth: 3
 
 build_script:
   - ps: .\build\package.ps1
-
-test_script: off
   
 artifacts:
   - path: /.*\.(?:zip|nupkg)$/
