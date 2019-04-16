@@ -16,7 +16,7 @@ deploy:
   auth_token:
     secure: 2bhzwda2nhlr7agSQL96Lu81Hsmxdod21jyXjEXX36DYM1d8L8bIW5hNGb5hOCL0
   draft: false
-  artifact: /.*\.(zip|nupkg)/
+  artifact: appNugetPackages,appNativePackages
   prerelease: false
   force_update: true
   on:
