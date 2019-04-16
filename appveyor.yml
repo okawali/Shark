@@ -3,7 +3,7 @@ image: Visual Studio 2017
 clone_depth: 3
 
 build_script:
-  - ps: .\package.ps1
+  - ps: .\build\package.ps1
 
 test_script: off
   
