@@ -13,7 +13,7 @@ namespace Shark.Plugins.Internal
             return Array.Empty<byte>();
         }
 
-        public byte[] GenerateCrypterPassword()
+        public byte[] GenerateEncodedPassword()
         {
             return ScryptUtil.Scrypt(Guid.NewGuid().ToString(), Guid.NewGuid().ToByteArray(), 1024, 8, 8, 16);
         }
@@ -26,6 +26,11 @@ namespace Shark.Plugins.Internal
         public void ValidateChallengeResponse(ReadOnlySpan<byte> input)
         {
 
+        }
+
+        public byte[] DecodePassword(ReadOnlySpan<byte> encoded)
+        {
+            return encoded.ToArray();
         }
     }
 }

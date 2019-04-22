@@ -7,6 +7,7 @@ namespace Shark.Security.Authentication
         byte[] GenerateChallenge();
         byte[] ValidateChallenge(ReadOnlySpan<byte> input);
         void ValidateChallengeResponse(ReadOnlySpan<byte> input);
-        byte[] GenerateCrypterPassword();
+        byte[] GenerateEncodedPassword();
+        byte[] DecodePassword(ReadOnlySpan<byte> encoded);
     }
 }
