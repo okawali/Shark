@@ -250,13 +250,13 @@ namespace Shark.Server.Net
 
                 block = await ReadBlock();
 
-                ConfigureCryptor(block.Data.Span);
+                ConfigureCryptor(Authenticator.DecodePassword(block.Data.Span));
             }
             else if (block.Type == BlockType.FAST_CONNECT)
             {
                 var data = block.Data;
                 var (id, challenge, password, encryptedData) = FastConnectUtils.ParseFactConnectData(data);
-                ConfigureCryptor(password.Span);
+                ConfigureCryptor(Authenticator.DecodePassword(password.Span));
                 block.Data = encryptedData.ToArray();
                 DecryptBlock(ref block);
 

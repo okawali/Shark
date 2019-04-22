@@ -123,9 +123,9 @@ namespace Shark.Client
             }
 
             block = new BlockData() { Id = Id, Type = BlockType.HAND_SHAKE_RESPONSE };
-            block.Data = _authenticator.GenerateCrypterPassword();
+            block.Data = _authenticator.GenerateEncodedPassword();
             await WriteBlock(block);
-            ConfigureCryptor(block.Data.Span);
+            ConfigureCryptor(_authenticator.DecodePassword(block.Data.Span));
 
             Initialized = true;
         }
@@ -133,10 +133,10 @@ namespace Shark.Client
         public async Task<BlockData> FastConnect(int id, HostData hostData)
         {
             var data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(hostData));
-            var password = _authenticator.GenerateCrypterPassword();
+            var password = _authenticator.GenerateEncodedPassword();
             var block = new BlockData() { Id = id, Type = BlockType.FAST_CONNECT };
 
-            ConfigureCryptor(password);
+            ConfigureCryptor(_authenticator.DecodePassword(password));
             block.Data = data;
             EncryptBlock(ref block);
 
