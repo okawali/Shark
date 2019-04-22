@@ -1,18 +1,16 @@
 ﻿using McMaster.NETCore.Plugins;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Shark.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace Shark.Plugins
 {
     public class PluginLoader
     {
-        private readonly static Regex PathReplacement = new Regex("\\$\\{(.+?)\\}", RegexOptions.Compiled);
-
         public IList<IPlugin> Plugins { get; }
         public string SearchPath { get; }
 
@@ -33,23 +31,9 @@ namespace Shark.Plugins
             }
         }
 
-        private string FormatPath(string path, IConfiguration configuration)
-        {
-            var match = PathReplacement.Match(path);
-
-            if (match.Success)
-            {
-                var group = match.Groups[1].Value;
-
-                return path.Substring(0, match.Index) + match.Result(configuration[group]) + path.Substring(match.Index + match.Length);
-            }
-
-            return path;
-        }
-
         private void LoadPlugins(IConfiguration configuration)
         {
-            var fullPath = Path.GetFullPath(FormatPath(SearchPath, configuration));
+            var fullPath = Path.GetFullPath(PathUtils.ResolvePath(SearchPath, configuration));
 
             if (Directory.Exists(fullPath))
             {
