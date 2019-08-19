@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Shark.Client.Proxy.Socks5.Constants;
 using Shark.Constants;
 using Shark.Data;
@@ -26,6 +27,7 @@ namespace Shark.Client.Proxy.Socks5
         private HostData _target;
         private readonly byte[] _udpBuffer;
         private IPEndPoint _lastEndpoint;
+        private readonly bool _supportPrivoxy;
 
         public override ILogger Logger { get; }
 
@@ -33,7 +35,12 @@ namespace Shark.Client.Proxy.Socks5
 
         public override event Action<ISocketClient> RemoteDisconnected;
 
-        public Socks5Client(TcpClient tcp, IProxyServer server, ISharkClient shark, ILogger<Socks5Client> logger, IServiceProvider servicdeProvider) : base(server, shark)
+        public Socks5Client(TcpClient tcp,
+            IProxyServer server,
+            ISharkClient shark,
+            ILogger<Socks5Client> logger,
+            IConfiguration configuration,
+            IServiceProvider servicdeProvider) : base(server, shark)
         {
             Logger = logger;
             ServiceProvider = servicdeProvider;
@@ -43,6 +50,12 @@ namespace Shark.Client.Proxy.Socks5
             _socksFailed = false;
             _udpBuffer = new byte[1500];
             _lastEndpoint = new IPEndPoint(0, 0);
+
+            if (!bool.TryParse(configuration["privoxy:supported"], out _supportPrivoxy))
+            {
+                _supportPrivoxy = false;
+            }
+
         }
 
         public override async Task<bool> ProcessSharkData(BlockData block)
@@ -52,7 +65,7 @@ namespace Shark.Client.Proxy.Socks5
                 Socks5Response resp;
                 if (_target.Type == RemoteType.Tcp)
                 {
-                    resp = Socks5Response.FromRequest(_request, SocksResponse.SUCCESS);
+                    resp = Socks5Response.FromRequest(_request, SocksResponse.SUCCESS, _supportPrivoxy);
                     var data = resp.ToBytes();
 
                     await WriteAsync(data);
@@ -76,7 +89,7 @@ namespace Shark.Client.Proxy.Socks5
             }
             else if (block.Type == BlockType.CONNECT_FAILED)
             {
-                var resp = Socks5Response.FromRequest(_request, SocksResponse.CANNOT_CONNECT);
+                var resp = Socks5Response.FromRequest(_request, SocksResponse.CANNOT_CONNECT, _supportPrivoxy);
                 var data = resp.ToBytes();
                 await WriteAsync(data);
                 await FlushAsync();
@@ -167,7 +180,7 @@ namespace Shark.Client.Proxy.Socks5
                 return _target;
             }
 
-            var resp = Socks5Response.FromRequest(_request, SocksResponse.CANNOT_CONNECT);
+            var resp = Socks5Response.FromRequest(_request, SocksResponse.CANNOT_CONNECT, _supportPrivoxy);
             var data = resp.ToBytes();
 
             await WriteAsync(data);
@@ -433,7 +446,7 @@ namespace Shark.Client.Proxy.Socks5
 
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer)
         {
-            var read =  await _pipe.Reader.ReadAsync();
+            var read = await _pipe.Reader.ReadAsync();
             var readed = Math.Min(read.Buffer.Length, buffer.Length);
             var data = read.Buffer.Slice(0, readed);
 

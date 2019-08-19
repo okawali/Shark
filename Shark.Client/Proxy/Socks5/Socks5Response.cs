@@ -27,14 +27,14 @@ namespace Shark.Client.Proxy.Socks5
             return result;
         }
 
-        public static Socks5Response FromRequest(Socks5Request request, byte response)
+        public static Socks5Response FromRequest(Socks5Request request, byte response, bool resolveRemote)
         {
             var resp = new Socks5Response
             {
                 Version = request.Version,
                 Response = response,
                 RSV = request.RSV,
-                Remote = request.Remote
+                Remote =  resolveRemote? request.Remote.Resolve() : request.Remote
             };
             return resp;
         }
