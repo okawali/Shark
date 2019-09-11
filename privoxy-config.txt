@@ -1,0 +1,6 @@
+listen-address  [::0]:1081
+listen-address  0.0.0.0:1081
+forward-socks5     /      127.0.0.1:1080 .
+max-client-connections 2048
+hide-console
+activity-animation 0

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 
 namespace Shark.Data
@@ -12,7 +13,7 @@ namespace Shark.Data
     }
 
     // Use rfc-1928 Socks5 Adderss definition
-    public class SocksRemote
+    public class SocksRemote : ICloneable
     {
         public byte AddressType { set; get; }
         public string Address { set; get; }
@@ -54,6 +55,50 @@ namespace Shark.Data
                 result[result.Length - 2] = tmp;
             }
             return result;
+        }
+
+        public SocksRemote Resolve(AddressFamily addressFamily = AddressFamily.InterNetwork)
+        {
+            if (AddressType != SocksRemoteType.DOMAIN)
+            {
+                return Clone();
+            }
+
+            var task = Dns.GetHostAddressesAsync(Address);
+            var newItem = new SocksRemote()
+            {
+                Port = Port
+            };
+
+            if (addressFamily == AddressFamily.InterNetworkV6)
+            {
+                newItem.AddressType = SocksRemoteType.IPV6;
+                newItem.Address = IPAddress.IPv6Any.ToString();
+            }
+            else
+            {
+                newItem.AddressType = SocksRemoteType.IPV4;
+                newItem.Address = IPAddress.Any.ToString();
+            }
+
+            try
+            {
+                task.Wait();
+                foreach (var address in task.Result)
+                {
+                    if (address.AddressFamily == addressFamily)
+                    {
+                        newItem.Address = address.ToString();
+                        break;
+                    }
+                }
+            }
+            catch
+            {
+                // eat the resolve error
+            }
+
+            return newItem;
         }
 
         public override int GetHashCode()
@@ -123,6 +168,21 @@ namespace Shark.Data
                     break;
             }
             return result;
+        }
+
+        public SocksRemote Clone()
+        {
+            return new SocksRemote()
+            {
+                AddressType = AddressType,
+                Address = Address,
+                Port = Port
+            };
+        }
+
+        object ICloneable.Clone()
+        {
+            return Clone();
         }
     }
 }

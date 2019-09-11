@@ -1,5 +1,6 @@
 ﻿<Project>
   <PropertyGroup>
+    <Version>$(Version).2</Version>
     <OutputType>Exe</OutputType>
     <AssemblyName>shark</AssemblyName>
   </PropertyGroup>
