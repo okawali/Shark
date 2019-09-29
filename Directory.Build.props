@@ -1,8 +1,7 @@
 <Project>
   <PropertyGroup>
-    <Version>6.0</Version>
-    <TargetFramework>netcoreapp2.2</TargetFramework>
-    <LangVersion>7.3</LangVersion>
+    <Version>6.1</Version>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
     <Authors>Norgerman</Authors>
     <RepositoryType>git</RepositoryType>
     <Copyright>Copyright 2019 (c) Norgerman.</Copyright>

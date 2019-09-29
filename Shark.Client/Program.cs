@@ -20,6 +20,7 @@ namespace Shark.Client
 {
     internal class Program
     {
+
         private static void Main(string[] args)
         {
             var config = Path.Combine(AppContext.BaseDirectory, "config.yml");
