@@ -45,7 +45,7 @@ namespace Shark.Plugins
                     var assemblyDll = Path.Join(dir, dirName + ".dll");
                     if (File.Exists(assemblyDll))
                     {
-                        var loader = McMaster.NETCore.Plugins.PluginLoader.CreateFromAssemblyFile(assemblyDll, PluginLoaderOptions.PreferSharedTypes);
+                        var loader = McMaster.NETCore.Plugins.PluginLoader.CreateFromAssemblyFile(assemblyDll, config => { config.PreferSharedTypes = true; });
                         loaders.Add(loader);
                     }
                 }
