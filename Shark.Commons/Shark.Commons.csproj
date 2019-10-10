@@ -3,6 +3,9 @@
   <PropertyGroup>
     <Version>$(Version).0</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>Shark.Commons</AssemblyName>
+    <PackageId>Shark.Commons</PackageId>
+    <Description>Shark basic common package</Description>
   </PropertyGroup>
  
   <ItemGroup>
