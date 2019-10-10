@@ -12,13 +12,22 @@ artifacts:
     name: appNugetPackages
     
 deploy:
-  provider: GitHub
-  auth_token:
-    secure: WuSwaTibZuolXKreU6fBS2JH/+y9QdPZFJ73kVMXWLocILIGT1H75X5TryK9IInq
-  draft: false
-  artifact: appNugetPackages,appNativePackages
-  prerelease: false
-  force_update: true
-  on:
-    branch: master
-    appveyor_repo_tag: true
+  - provider: GitHub
+    auth_token:
+      secure: WuSwaTibZuolXKreU6fBS2JH/+y9QdPZFJ73kVMXWLocILIGT1H75X5TryK9IInq
+    draft: false
+    artifact: appNugetPackages,appNativePackages
+    prerelease: false
+    force_update: true
+    on:
+      branch: master
+      appveyor_repo_tag: true
+  - provider: NuGet
+    server: https://nuget.pkg.github.com/okawali/index.json
+    userName: Norgerman
+    artifact: appNugetPackages
+    api_key:
+      secure: lKorNt6vdcTSH7+AeYJzFK937hcOcRmw9WDSvu18U6HpUojSCI/Z5jaWeW6SFDCS
+    on:
+      branch: master
+      appveyor_repo_tag: true
