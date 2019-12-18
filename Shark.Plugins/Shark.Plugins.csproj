@@ -1,12 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>$(Version).1</Version>
+    <Version>$(Version).0</Version>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Shark.Commons\Shark.Commons.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="McMaster.NETCore.Plugins" Version="0.3.0" />
-    <PackageReference Include="Norgerman.Cryptography.Scrypt" Version="2.0.1" />
+    <PackageReference Include="McMaster.NETCore.Plugins" Version="0.3.2" />
+    <PackageReference Include="Norgerman.Cryptography.Scrypt" Version="2.1.0" />
   </ItemGroup>
 </Project>
