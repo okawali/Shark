@@ -5,11 +5,20 @@
 # Shark
 A proxy ng
 
-## installation
+## Installation(choose one)
+### pre compiled package
 1. download pre packaged executable from release, zip files
-1. download packed dotnet tool from release, and install use `dotnet tool` command, nupkg files 
+1. just unzip
 
-## how to start
+### dotnet tool package(local)
+1. download packed dotnet tool from release, and install use `dotnet tool` command, nupkg files 
+1. `dotnet tool install shark/shark-server -g --add-source ${folder of nupkg files}`
+
+### dotnet tool package(github package registry)
+1. add github package registry `https://nuget.pkg.github.com/okawali/index.json"`
+1. `dotnet tool install shark/shark-server -g --ignore-failed-sources`
+
+## How to start
 ### cmd
 
 ```sh
@@ -18,7 +27,7 @@ shark-server | shark -h
 -h, --help                 show this message and exit
 ```
 
-### config
+### Config
 ```yaml
 pluginRoot: ~
 backlog: ~
