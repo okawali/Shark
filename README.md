@@ -15,7 +15,7 @@ A proxy ng
 1. `dotnet tool install shark/shark-server -g --add-source ${folder of nupkg files}`
 
 ### dotnet tool package(github package registry)
-1. add github package registry `https://nuget.pkg.github.com/okawali/index.json"`
+1. add github package registry `https://nuget.pkg.github.com/okawali/index.json`
 1. `dotnet tool install shark/shark-server -g --ignore-failed-sources`
 
 ## How to start
