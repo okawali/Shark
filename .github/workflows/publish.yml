@@ -23,7 +23,7 @@ jobs:
         shell: pwsh
 
       - name: Publish packages
-        run: dotnet nuget push **/*.nupkg --skip-duplicate
+        run: dotnet nuget push *.nupkg --skip-duplicate
 
       - name: Upload release assets
         uses: csexton/release-asset-action@master
