@@ -22,8 +22,6 @@ jobs:
         run: ./build/package.ps1
         shell: pwsh
 
-      - run: ls -l
-
       - name: Publish packages
         run: dotnet nuget push **/*.nupkg --skip-duplicate
 
