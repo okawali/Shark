@@ -1,6 +1,6 @@
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg)](./LICENSE)
 [![LICENSE](https://img.shields.io/badge/license-Anti%20996-blue.svg)](https://github.com/996icu/996.ICU/blob/master/LICENSE)
-[![Build Status](https://ci.appveyor.com/api/projects/status/github/okawali/Shark?svg=true)](https://ci.appveyor.com/project/Norgerman/Shark)
+![](https://github.com/okawali/shark/workflows/Build/badge.svg)
 
 # Shark
 A proxy ng
