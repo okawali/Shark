@@ -41,8 +41,3 @@ $outPath = Join-Path (Get-Item -Path "./").FullName 'shark-server-ubuntu.18.04-x
 $inPath = Join-Path (Get-Item -Path "./").FullName 'Shark.Client/bin/Release/netcoreapp3.1/ubuntu.18.04-x64/publish'
 $outPath = Join-Path (Get-Item -Path "./").FullName 'shark-ubuntu.18.04-x64.zip'
 [IO.Compression.ZipFile]::CreateFromDirectory($inPath, $outPath, [System.IO.Compression.CompressionLevel]::Optimal, $False)
-
-#tool packages
-Move-Item 'Shark.Client.Tool/bin/Release/*.nupkg' ./
-Move-Item 'Shark.Server.Tool/bin/Release/*.nupkg' ./
-Move-Item 'Shark.Commons/bin/Release/*.nupkg' ./
