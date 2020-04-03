@@ -24,7 +24,7 @@ jobs:
         shell: pwsh
 
       - name: Publish packages
-        run: dotnet nuget publish ./*.nupkg
+        run: dotnet nuget push ./*.nupkg
 
       - name: Ceate github release
         id: create_release
