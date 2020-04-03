@@ -15,7 +15,7 @@ Add-Type -A System.IO.Compression.FileSystem
 Remove-Item * -Include *.zip,*.nupkg
 
 #win10-x64
-$inPath = Join-Path (Get-Item -Path "./").FullName 'Shark.Serverbin/Release/netcoreapp3.1/win10-x64/publish'
+$inPath = Join-Path (Get-Item -Path "./").FullName 'Shark.Server/bin/Release/netcoreapp3.1/win10-x64/publish'
 $outPath = Join-Path (Get-Item -Path "./").FullName 'shark-server-win10-x64.zip'
 [IO.Compression.ZipFile]::CreateFromDirectory($inPath, $outPath, [System.IO.Compression.CompressionLevel]::Optimal, $False)
 
