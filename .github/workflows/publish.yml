@@ -1,6 +1,6 @@
 on:
   release:
-    types: [created]
+    types: [created, published]
 
 name: Publish release
 
@@ -21,8 +21,6 @@ jobs:
       - name: Create packages
         run: ./build/package.ps1
         shell: pwsh
-
-      - run: ls -l
 
       - name: Publish packages
         run: dotnet nuget push **/*.nupkg --skip-duplicate
