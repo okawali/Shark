@@ -22,8 +22,9 @@ jobs:
         run: ./build/package.ps1
         shell: pwsh
 
+      - run: ls -l
+
       - name: Publish packages
-        run: ls -l
         run: dotnet nuget push **/*.nupkg --skip-duplicate
 
       - name: Upload release assets
