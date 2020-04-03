@@ -1,5 +1,5 @@
 on:
-  publish:
+  push:
     tags:
       - 'v*'
 
