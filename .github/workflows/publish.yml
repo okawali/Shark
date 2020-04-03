@@ -22,9 +22,9 @@ jobs:
         run: ./build/package.ps1
         shell: pwsh
 
-      - run: dotnet nuget push shark-server.*.nupkg --skip-duplicate
-      - run: dotnet nuget push shark.*.nupkg --skip-duplicate
-      - run: dotnet nuget push Shark.Commons.*.nupkg --skip-duplicate
+      - run: dotnet nuget push Shark.Client.Tool/bin/Release/*.nupkg --skip-duplicate
+      - run: dotnet nuget push Shark.Server.Tool/bin/Release/*.nupkg --skip-duplicate
+      - run: dotnet nuget push Shark.Commons/bin/Release/*.nupkg --skip-duplicate
 
       - name: Upload release assets
         uses: csexton/release-asset-action@master
