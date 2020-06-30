@@ -120,7 +120,7 @@ namespace Shark.Server.Net.Internal
 
         public override void ConfigureCryptor(ReadOnlySpan<byte> password)
         {
-            Cryptor.Init(_keyGenerator.Generate(password));
+            Cryptor.Init(_keyGenerator.Generate(password, Cryptor.Info));
         }
     }
 }

@@ -4,6 +4,8 @@ namespace Shark.Security.Crypto
 {
     public interface ICryptor : INamed
     {
+        CryptoInfo Info { get; }
+
         /// <summary>
         /// init the crypter
         /// </summary>

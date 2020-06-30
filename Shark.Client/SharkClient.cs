@@ -78,7 +78,7 @@ namespace Shark.Client
 
         public void ConfigureCryptor(ReadOnlySpan<byte> password)
         {
-            Cryptor.Init(_keyGenerator.Generate(password));
+            Cryptor.Init(_keyGenerator.Generate(password, Cryptor.Info));
         }
 
         public void EncryptBlock(ref BlockData block)
