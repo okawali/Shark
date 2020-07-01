@@ -2,8 +2,6 @@
 using Shark.Security.Crypto;
 using System;
 using System.Buffers;
-using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 
 namespace Shark.Plugins.Internal
