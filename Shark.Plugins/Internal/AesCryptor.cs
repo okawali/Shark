@@ -17,9 +17,9 @@ namespace Shark.Plugins.Internal
     {
         public string Name => "aes-256-cbc";
 
-        private CryptoInfo info;
+        private CryptoInfo _info;
 
-        public CryptoInfo Info => info;
+        public CryptoInfo Info => _info;
 
         /// <summary>
         /// Create a instance use random key and iv
@@ -30,7 +30,7 @@ namespace Shark.Plugins.Internal
             this.Mode = CipherMode.CBC;
             this.Padding = PaddingMode.PKCS7;
             this.KeySize = 256;
-            this.info = new CryptoInfo() { KeySize = 32, IVSize = 16 };
+            this._info = new CryptoInfo() { KeySize = 32, IVSize = 16 };
         }
 
         /// <summary>
@@ -46,7 +46,7 @@ namespace Shark.Plugins.Internal
             this.Padding = PaddingMode.PKCS7;
             this.Key = key;
             this.IV = iv;
-            this.info = new CryptoInfo() { KeySize = 32, IVSize = 16 };
+            this._info = new CryptoInfo() { KeySize = 32, IVSize = 16 };
         }
 
         public void Init(CryptoKey key)
