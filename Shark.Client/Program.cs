@@ -87,12 +87,12 @@ namespace Shark.Client
 
                     if (!ushort.TryParse(configuration["shark:port"], out var remotePort))
                     {
-                        remotePort = 1080;
+                        remotePort = 12306;
                     }
 
                     var remoteAddr = configuration["shark:host"];
 
-                    if (string.IsNullOrEmpty(localAddr))
+                    if (string.IsNullOrEmpty(remoteAddr))
                     {
                         remoteAddr = "127.0.0.1";
                     }

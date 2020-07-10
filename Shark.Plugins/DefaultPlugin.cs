@@ -12,6 +12,7 @@ namespace Shark.Plugins
         public void Configure(IServiceCollection services, IConfiguration configuration)
         {
             services.AddScoped<ICryptor, AesCryptor>()
+                .AddScoped<ICryptor, AesGcmCryptor>()
                 .AddSingleton<IKeyGenerator, ScryptKeyGenerator>()
                 .AddSingleton<IAuthenticator, NoneAuthenticator>()
                 .AddScoped<ISecurityConfigurationFetcher, DefaultSecurityConfigurationFetcher>();

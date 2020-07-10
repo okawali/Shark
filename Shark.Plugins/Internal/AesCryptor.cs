@@ -1,8 +1,7 @@
 ﻿using Norgerman.Cryptography.Scrypt;
 using Shark.Security.Crypto;
 using System;
-using System.IO;
-using System.Linq;
+using System.Buffers;
 using System.Security.Cryptography;
 
 namespace Shark.Plugins.Internal
@@ -18,6 +17,10 @@ namespace Shark.Plugins.Internal
     {
         public string Name => "aes-256-cbc";
 
+        private CryptoInfo _info;
+
+        public CryptoInfo Info => _info;
+
         /// <summary>
         /// Create a instance use random key and iv
         /// </summary>
@@ -27,6 +30,7 @@ namespace Shark.Plugins.Internal
             this.Mode = CipherMode.CBC;
             this.Padding = PaddingMode.PKCS7;
             this.KeySize = 256;
+            this._info = new CryptoInfo() { KeySize = 32, IVSize = 16 };
         }
 
         /// <summary>
@@ -42,6 +46,7 @@ namespace Shark.Plugins.Internal
             this.Padding = PaddingMode.PKCS7;
             this.Key = key;
             this.IV = iv;
+            this._info = new CryptoInfo() { KeySize = 32, IVSize = 16 };
         }
 
         public void Init(CryptoKey key)
@@ -59,30 +64,20 @@ namespace Shark.Plugins.Internal
         /// <returns>bytes after encrypted</returns>
         public byte[] Encrypt(ReadOnlySpan<byte> inputBuffer)
         {
-            ICryptoTransform encryptor;
-            MemoryStream ms;
-            CryptoStream cs;
-            byte[] encrypted;
+            var encryptor = CreateEncryptor();
+            var input = ArrayPool<byte>.Shared.Rent(inputBuffer.Length);
 
-            encryptor = this.CreateEncryptor();
-
-            ms = new MemoryStream();
-            cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write);
+            inputBuffer.CopyTo(input);
 
             try
             {
-                cs.Write(inputBuffer);
-                cs.FlushFinalBlock();
+                return encryptor.TransformFinalBlock(input, 0, inputBuffer.Length);
             }
             finally
             {
-                cs.Close();
-                encrypted = ms.ToArray();
-                ms.Close();
                 encryptor.Dispose();
+                ArrayPool<byte>.Shared.Return(input);
             }
-
-            return encrypted;
         }
 
 
@@ -93,21 +88,20 @@ namespace Shark.Plugins.Internal
         /// <returns>bytes after decrypted</returns>
         public byte[] Decrypt(ReadOnlySpan<byte> inputBuffer)
         {
-            int len;
-            ICryptoTransform decryptor = CreateDecryptor();
-            MemoryStream ms;
-            CryptoStream cs;
-            byte[] decrypted;
+            var decryptor = CreateDecryptor();
+            var input = ArrayPool<byte>.Shared.Rent(inputBuffer.Length);
 
-            using (decryptor)
-            using (ms = new MemoryStream(inputBuffer.ToArray()))
-            using (cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read))
+            inputBuffer.CopyTo(input);
+
+            try
             {
-                decrypted = new byte[inputBuffer.Length];
-                len = cs.Read(decrypted, 0, inputBuffer.Length);
+                return decryptor.TransformFinalBlock(input, 0, inputBuffer.Length);
             }
-
-            return decrypted.Take(len).ToArray();
+            finally
+            {
+                decryptor.Dispose();
+                ArrayPool<byte>.Shared.Return(input);
+            }
         }
 
 
