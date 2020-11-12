@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
-    <Version>6.3.0</Version>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <Version>6.4.0</Version>
+    <TargetFramework>net5.0</TargetFramework>
     <Authors>Norgerman</Authors>
     <PackageTags>Shark</PackageTags>
     <Copyright>Copyright 2019 (c) Norgerman.</Copyright>
