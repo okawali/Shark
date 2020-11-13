@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using Shark.Constants;
 using Shark.Data;
 using Shark.Net;
@@ -14,6 +13,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.Json;
 
 namespace Shark.Server.Net
 {
@@ -156,7 +156,7 @@ namespace Shark.Server.Net
         public async Task Disconnect(List<int> ids)
         {
             var block = new BlockData() { Id = 0, Type = BlockType.DISCONNECT };
-            var data = JsonConvert.SerializeObject(ids);
+            var data = JsonSerializer.Serialize(ids);
             block.Data = Encoding.UTF8.GetBytes(data);
             EncryptBlock(ref block);
             Logger.LogDebug("Disconnet {0}", data);

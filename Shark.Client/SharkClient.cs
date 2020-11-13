@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using Shark.Constants;
 using Shark.Data;
 using Shark.Net;
@@ -13,6 +12,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -132,7 +132,7 @@ namespace Shark.Client
 
         public async Task<BlockData> FastConnect(int id, HostData hostData)
         {
-            var data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(hostData));
+            var data = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(hostData));
             var password = _authenticator.GenerateEncodedPassword();
             var block = new BlockData() { Id = id, Type = BlockType.FAST_CONNECT };
 
@@ -169,7 +169,7 @@ namespace Shark.Client
 
         public async Task ProxyTo(int id, HostData hostData)
         {
-            var hostJsonData = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(hostData));
+            var hostJsonData = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(hostData));
             var block = new BlockData() { Id = id, Type = BlockType.CONNECT };
             block.Data = hostJsonData;
             EncryptBlock(ref block);
@@ -388,7 +388,7 @@ namespace Shark.Client
         private async Task Disconnect(List<int> ids)
         {
             var block = new BlockData() { Id = 0, Type = BlockType.DISCONNECT };
-            var data = JsonConvert.SerializeObject(ids);
+            var data = JsonSerializer.Serialize(ids);
             block.Data = Encoding.UTF8.GetBytes(data);
             EncryptBlock(ref block);
             Logger.LogDebug("Disconnet {0}", data);

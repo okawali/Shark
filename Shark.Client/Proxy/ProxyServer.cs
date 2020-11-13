@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Newtonsoft.Json;
 using Shark.Constants;
 using Shark.Data;
 using Shark.Net;
@@ -12,6 +11,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -103,7 +103,7 @@ namespace Shark.Client.Proxy
                         if (block.Type == BlockType.DISCONNECT)
                         {
                             var idData = Encoding.UTF8.GetString(block.Data.Span);
-                            var ids = JsonConvert.DeserializeObject<List<int>>(idData);
+                            var ids = JsonSerializer.Deserialize<List<int>>(idData);
                             Logger.LogDebug("Remote request disconnect {0}", idData);
                             foreach (var id in ids)
                             {
