@@ -8,7 +8,7 @@ namespace Shark.Plugins.Internal
     {
         public string Name => "scrypt";
 
-        public CryptoKey Generate(byte[] password, CryptoInfo info)
+        public CryptoKey Generate(ReadOnlySpan<byte> password, CryptoInfo info)
         {
             var iv = ScryptUtil.Scrypt(password, password, 256, 8, 16, info.IVSize);
             var key = ScryptUtil.Scrypt(password, iv, 512, 8, 16, info.KeySize);
@@ -18,11 +18,7 @@ namespace Shark.Plugins.Internal
                 Key = key,
                 IV = iv
             };
-        }
 
-        public CryptoKey Generate(ReadOnlySpan<byte> password, CryptoInfo info)
-        {
-            return Generate(password.ToArray(), info);
         }
     }
 }
