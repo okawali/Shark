@@ -1,11 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using Shark.Constants;
 using Shark.Data;
 using Shark.Net;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace Shark.Server
@@ -38,7 +38,7 @@ namespace Shark.Server
 #pragma warning restore CS4014
                             else if (block.Type == BlockType.DISCONNECT)
                             {
-                                var ids = JsonConvert.DeserializeObject<List<int>>(Encoding.UTF8.GetString(block.Data.Span));
+                                var ids = JsonSerializer.Deserialize<List<int>>(Encoding.UTF8.GetString(block.Data.Span));
                                 foreach (var id in ids)
                                 {
                                     if (client.RemoteClients.TryGetValue(id, out var item))
@@ -80,7 +80,7 @@ namespace Shark.Server
             try
             {
                 client.Logger.LogInformation("Process connect {0}", block.Id);
-                var host = JsonConvert.DeserializeObject<HostData>(Encoding.UTF8.GetString(block.Data.Span));
+                var host = JsonSerializer.Deserialize<HostData>(Encoding.UTF8.GetString(block.Data.Span));
                 remote = await client.ConnectTo(host.Address, host.Port, host.Type, block.Id);
                 client.Logger.LogInformation("Connected {0}", block.Id);
             }
