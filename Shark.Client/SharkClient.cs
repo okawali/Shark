@@ -425,7 +425,9 @@ namespace Shark.Client
                         _tcp.Dispose();
                         _writeSemaphore.Dispose();
                         _disconnectTimer.Dispose();
-
+                        _authenticator.Dispose();
+                        _keyGenerator.Dispose();
+                        Cryptor.Dispose();
                         RemoteClients.Clear();
                     }
 

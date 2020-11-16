@@ -40,5 +40,10 @@ namespace Shark.Plugins.Internal
 
             return result;
         }
+
+        public void Dispose()
+        {
+            _gcm.Dispose();
+        }
     }
 }

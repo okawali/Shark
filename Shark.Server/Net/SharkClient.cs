@@ -287,6 +287,8 @@ namespace Shark.Server.Net
                     RemoteClients.Clear();
                     _timer.Dispose();
                     _writeSemaphore.Dispose();
+                    Authenticator.Dispose();
+                    Cryptor.Dispose();
                     _timer = null;
                     _writeSemaphore = null;
                     RemoteClients = null;
