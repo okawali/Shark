@@ -109,6 +109,7 @@ namespace Shark.Server.Net.Internal
                         }
                         _stream.Dispose();
                         _tcp.Dispose();
+                        _keyGenerator.Dispose();
                         RemoteDisconnected = null;
                         _tcp = null;
                         _stream = null;

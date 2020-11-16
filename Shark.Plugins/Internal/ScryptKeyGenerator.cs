@@ -20,5 +20,11 @@ namespace Shark.Plugins.Internal
             };
 
         }
+
+
+        public void Dispose()
+        {
+            
+        }
     }
 }

@@ -32,5 +32,10 @@ namespace Shark.Plugins.Internal
         {
             return encoded.ToArray();
         }
+
+        public void Dispose()
+        {
+
+        }
     }
 }
