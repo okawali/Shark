@@ -70,7 +70,7 @@ namespace Shark.Client.Proxy.Socks5
 
                     await WriteAsync(data);
                     await FlushAsync();
-                    Logger.LogInformation($", {Id}");
+                    Logger.LogInformation($"{_target} connected, {Id}");
 
 #pragma warning disable CS4014
                     ProcessData();
