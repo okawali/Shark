@@ -175,7 +175,7 @@ namespace Shark.Client.Proxy.Socks5
                     Port = _request.Remote.Port,
                     Type = RemoteType.Udp
                 };
-                Logger.LogInformation($"Connecting to {_target}, configing udp relay, {Id}");
+                Logger.LogInformation($"Connecting to {_target}, configuring udp relay, {Id}");
                 BindUdp(_target);
                 return _target;
             }
