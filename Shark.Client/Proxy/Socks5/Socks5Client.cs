@@ -84,7 +84,7 @@ namespace Shark.Client.Proxy.Socks5
 
                     StopTcp();
                     _pipe.Reader.Complete();
-                    Logger.LogInformation($"{_target} connected, udp relay started, {Id}");
+                    Logger.LogInformation($"Udp relay started, {Id}");
                 }
             }
             else if (block.Type == BlockType.CONNECT_FAILED)
@@ -169,13 +169,13 @@ namespace Shark.Client.Proxy.Socks5
             }
             else if (_request.Command == SocksCommand.UDP)
             {
+                Logger.LogInformation($"Configing udp relay, {Id}");
                 _target = new HostData()
                 {
                     Address = _request.Remote.Address,
                     Port = _request.Remote.Port,
                     Type = RemoteType.Udp
                 };
-                Logger.LogInformation($"Connecting to {_target}, configuring udp relay, {Id}");
                 BindUdp(_target);
                 return _target;
             }
