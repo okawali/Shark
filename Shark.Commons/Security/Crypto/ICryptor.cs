@@ -2,7 +2,7 @@
 
 namespace Shark.Security.Crypto
 {
-    public interface ICryptor : INamed, IDisposable
+    public interface ICryptor : IDisposable
     {
         CryptoInfo Info { get; }
 

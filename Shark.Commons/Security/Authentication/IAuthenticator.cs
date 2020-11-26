@@ -2,7 +2,7 @@
 
 namespace Shark.Security.Authentication
 {
-    public interface IAuthenticator : INamed, IDisposable
+    public interface IAuthenticator : IDisposable
     {
         byte[] GenerateChallenge();
         byte[] ValidateChallenge(ReadOnlySpan<byte> input);

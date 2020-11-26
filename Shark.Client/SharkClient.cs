@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 using Shark.Constants;
 using Shark.Data;
+using Shark.DependencyInjection.Extensions;
 using Shark.Net;
-using Shark.Security;
 using Shark.Security.Authentication;
 using Shark.Security.Crypto;
 using Shark.Utils;
@@ -51,8 +51,8 @@ namespace Shark.Client
         private int _closeTimerStarted;
 
         public SharkClient(IServiceProvider serviceProvider,
-            ILogger<SharkClient> logger,
-            ISecurityConfigurationFetcher securityConfigurationFetcher)
+            ILogger<SharkClient> logger
+           )
         {
             var tcp = new TcpClient(AddressFamily.InterNetworkV6);
             tcp.Client.DualMode = true;
@@ -71,9 +71,9 @@ namespace Shark.Client
             Logger = logger;
             Initialized = false;
 
-            Cryptor = securityConfigurationFetcher.FetchCryptor();
-            _keyGenerator = securityConfigurationFetcher.FetchKeyGenerator();
-            _authenticator = securityConfigurationFetcher.FetchAuthenticator();
+            Cryptor = serviceProvider.GetByConfiguration<ICryptor>();
+            _keyGenerator = serviceProvider.GetByConfiguration<IKeyGenerator>();
+            _authenticator = serviceProvider.GetByConfiguration<IAuthenticator>();
         }
 
         public void ConfigureCryptor(ReadOnlySpan<byte> password)

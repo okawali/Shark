@@ -2,6 +2,7 @@
 using Shark.Data;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Shark.Net.Client
@@ -16,7 +17,7 @@ namespace Shark.Net.Client
         IDictionary<int, IProxyClient> Clients { get; }
 
         Task<ISharkClient> GetOrCreateSharkClient();
-        Task Start();
+        Task Start(CancellationToken token);
 
         void RemoveClient(IProxyClient client);
     }

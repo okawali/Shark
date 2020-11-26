@@ -1,11 +1,12 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Shark.Options;
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Shark.Server.Net.Internal
 {
@@ -37,11 +38,12 @@ namespace Shark.Server.Net.Internal
             _bindingOptions = bindingOptions;
         }
 
-        public override async Task Start()
+        public override async Task Start(CancellationToken token)
         {
             Bind(_bindingOptions.Value.EndPoint);
             _listener.Start(_bindingOptions.Value.Backlog);
             Logger.LogInformation($"Server started, listening on {_listener.LocalEndpoint}, backlog: {_bindingOptions.Value.Backlog}");
+            token.Register(() => _listener.Stop());
             while (true)
             {
                 var client = await _listener.AcceptTcpClientAsync();

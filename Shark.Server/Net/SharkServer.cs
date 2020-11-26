@@ -3,6 +3,7 @@ using Shark.Net;
 using Shark.Net.Server;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Shark.Server.Net
@@ -79,6 +80,6 @@ namespace Shark.Server.Net
         }
         #endregion
 
-        public abstract Task Start();
+        public abstract Task Start(CancellationToken token);
     }
 }

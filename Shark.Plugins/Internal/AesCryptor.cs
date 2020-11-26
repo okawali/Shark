@@ -15,8 +15,6 @@ namespace Shark.Plugins.Internal
     /// </summary>
     sealed class AesCryptor : Aes, ICryptor
     {
-        public string Name => "aes-256-cbc";
-
         private CryptoInfo _info;
 
         public CryptoInfo Info => _info;

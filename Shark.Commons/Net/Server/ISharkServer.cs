@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Shark.Net.Server
@@ -16,6 +17,6 @@ namespace Shark.Net.Server
         ISharkServer OnClientConnected(Action<ISharkClient> onConnected);
         void RemoveClient(ISharkClient client);
         void RemoveClient(int id);
-        Task Start();
+        Task Start(CancellationToken token);
     }
 }

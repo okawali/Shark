@@ -24,7 +24,7 @@ namespace Shark.Security.Crypto
         public int IVSize { set; get; }
     }
 
-    public interface IKeyGenerator : INamed, IDisposable
+    public interface IKeyGenerator : IDisposable
     {
         CryptoKey Generate(ReadOnlySpan<byte> password, CryptoInfo info);
     }
