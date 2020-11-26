@@ -38,13 +38,14 @@ namespace Shark.Client.Proxy
             }
         }
 
-        public override Task Start()
+        public override Task Start(CancellationToken token)
         {
             Bind(BindingOptions.Value.EndPoint);
             _listener.Start(BindingOptions.Value.Backlog);
             Logger.LogInformation("Started, listening on {0}, protocol: {1}, max connections: {2}, backlog: {3}",
                 _listener.LocalEndpoint, Protocol, MaxCount == 0 ? "unlimited" : MaxCount.ToString(), BindingOptions.Value.Backlog);
             Logger.LogInformation($"Shark server {Remote}");
+            token.Register(() => _listener.Stop());
             return StartAccept();
         }
 

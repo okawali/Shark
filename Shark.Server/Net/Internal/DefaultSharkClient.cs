@@ -1,13 +1,13 @@
 ﻿using Microsoft.Extensions.Logging;
+using Shark.Data;
+using Shark.DependencyInjection.Extensions;
+using Shark.Net;
 using Shark.Security.Authentication;
 using Shark.Security.Crypto;
-using Shark.Data;
-using Shark.Net;
 using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
-using Shark.Security;
 
 namespace Shark.Server.Net.Internal
 {
@@ -24,10 +24,9 @@ namespace Shark.Server.Net.Internal
         private TcpClient _tcp;
         private NetworkStream _stream;
 
-        public DefaultSharkClient(TcpClient tcp, SharkServer server, 
-            IServiceProvider serviceProvider, 
-            ILogger<DefaultSharkClient> logger,
-            ISecurityConfigurationFetcher securityConfigurationFetcher)
+        public DefaultSharkClient(TcpClient tcp, SharkServer server,
+            IServiceProvider serviceProvider,
+            ILogger<DefaultSharkClient> logger)
             : base(server)
         {
             _tcp = tcp;
@@ -35,9 +34,9 @@ namespace Shark.Server.Net.Internal
             _syncRoot = new object();
             Logger = logger;
             ServiceProvider = serviceProvider;
-            Cryptor = securityConfigurationFetcher.FetchCryptor();
-            Authenticator = securityConfigurationFetcher.FetchAuthenticator();
-            _keyGenerator = securityConfigurationFetcher.FetchKeyGenerator();
+            Cryptor = serviceProvider.GetByConfiguration<ICryptor>();
+            Authenticator = serviceProvider.GetByConfiguration<IAuthenticator>();
+            _keyGenerator = serviceProvider.GetByConfiguration<IKeyGenerator>();
         }
 
         public override async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, int? id = null)

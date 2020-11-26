@@ -87,7 +87,7 @@ namespace Shark.Client.Proxy
             return Sharks.Values.ElementAt(_random.Next(Sharks.Count));
         }
 
-        public abstract Task Start();
+        public abstract Task Start(CancellationToken token);
 
         protected Task StartSharkLoop(ISharkClient shark)
         {

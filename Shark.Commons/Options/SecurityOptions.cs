@@ -1,9 +1,8 @@
 ﻿namespace Shark.Options
 {
-    public class SecurityOptions
+    public class SecurityOptions<TService>
+        where TService : class
     {
-        public string CryptorName { get; set; }
-        public string KeyGeneratorName { set; get; }
-        public string AuthenticatorName { set; get; }
+        public string Name { get; set; }
     }
 }

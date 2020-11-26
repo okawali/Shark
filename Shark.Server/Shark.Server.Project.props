@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="Mono.Options" Version="6.6.0.161" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="5.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="5.0.0" />
     <PackageReference Include="NetEscapades.Configuration.Yaml" Version="2.0.1" />
   </ItemGroup>

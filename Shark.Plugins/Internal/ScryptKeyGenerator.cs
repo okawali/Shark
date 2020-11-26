@@ -6,8 +6,6 @@ namespace Shark.Plugins.Internal
 {
     class ScryptKeyGenerator : IKeyGenerator
     {
-        public string Name => "scrypt";
-
         public CryptoKey Generate(ReadOnlySpan<byte> password, CryptoInfo info)
         {
             var iv = ScryptUtil.Scrypt(password, password, 256, 8, 16, info.IVSize);

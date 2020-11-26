@@ -1,6 +1,9 @@
-﻿using McMaster.NETCore.Plugins;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Shark.DependencyInjection;
+using Shark.DependencyInjection.Extensions;
+using Shark.Security.Authentication;
+using Shark.Security.Crypto;
 using Shark.Utils;
 using System;
 using System.Collections.Generic;
@@ -24,11 +27,18 @@ namespace Shark.Plugins
         public void Load(IServiceCollection serviceCollection, IConfiguration configuration)
         {
             LoadPlugins(configuration);
+            var cryptor = serviceCollection.AddNamed<ICryptor>(new NameServiceFactorySettings(ServiceLifetime.Scoped, "aes-256-cbc", StringComparer.OrdinalIgnoreCase));
+            var keygen = serviceCollection.AddNamed<IKeyGenerator>(new NameServiceFactorySettings(ServiceLifetime.Scoped, "scrypt", StringComparer.OrdinalIgnoreCase));
+            var authenticator = serviceCollection.AddNamed<IAuthenticator>(new NameServiceFactorySettings(ServiceLifetime.Scoped, "none", StringComparer.OrdinalIgnoreCase));
 
             foreach (var item in Plugins)
             {
-                item.Configure(serviceCollection, configuration);
+                item.Configure(serviceCollection, configuration, cryptor, keygen, authenticator);
             }
+
+            cryptor.Build();
+            keygen.Build();
+            authenticator.Build();
         }
 
         private void LoadPlugins(IConfiguration configuration)
