@@ -26,11 +26,11 @@ namespace Shark.DependencyInjection
             => Add(name, implementationType, ServiceLifetime.Transient);
 
         public NamedServiceFactoryBuilder<TService> AddTransient<TImplementation>(string name, Func<IServiceProvider, TImplementation> implementationFactory)
-          where TImplementation : class, TService
-          => Add(name, implementationFactory, ServiceLifetime.Transient);
+            where TImplementation : class, TService
+            => Add(name, implementationFactory, ServiceLifetime.Transient);
 
         public NamedServiceFactoryBuilder<TService> AddTransient(string name, Type implementationType, Func<IServiceProvider, object> implementationFactory)
-           => Add(name, implementationType, implementationFactory, ServiceLifetime.Transient);
+            => Add(name, implementationType, implementationFactory, ServiceLifetime.Transient);
 
         public NamedServiceFactoryBuilder<TService> AddScoped<TImplementation>(string name)
             where TImplementation : class, TService
@@ -40,11 +40,11 @@ namespace Shark.DependencyInjection
             => Add(name, implementationType, ServiceLifetime.Scoped);
 
         public NamedServiceFactoryBuilder<TService> AddScoped<TImplementation>(string name, Func<IServiceProvider, TImplementation> implementationFactory)
-          where TImplementation : class, TService
-          => Add(name, implementationFactory, ServiceLifetime.Scoped);
+            where TImplementation : class, TService
+            => Add(name, implementationFactory, ServiceLifetime.Scoped);
 
         public NamedServiceFactoryBuilder<TService> AddScoped(string name, Type implementationType, Func<IServiceProvider, object> implementationFactory)
-           => Add(name, implementationType, implementationFactory, ServiceLifetime.Scoped);
+            => Add(name, implementationType, implementationFactory, ServiceLifetime.Scoped);
 
         public NamedServiceFactoryBuilder<TService> AddSingleton<TImplementation>(string name)
             where TImplementation : class, TService
@@ -54,17 +54,15 @@ namespace Shark.DependencyInjection
             => Add(name, implementationType, ServiceLifetime.Singleton);
 
         public NamedServiceFactoryBuilder<TService> AddSingleton<TImplementation>(string name, Func<IServiceProvider, TImplementation> implementationFactory)
-          where TImplementation : class, TService
-          => Add(name, implementationFactory, ServiceLifetime.Singleton);
+            where TImplementation : class, TService
+            => Add(name, implementationFactory, ServiceLifetime.Singleton);
 
         public NamedServiceFactoryBuilder<TService> AddSingleton(string name, Type implementationType, Func<IServiceProvider, object> implementationFactory)
-           => Add(name, implementationType, implementationFactory, ServiceLifetime.Singleton);
+            => Add(name, implementationType, implementationFactory, ServiceLifetime.Singleton);
 
         private NamedServiceFactoryBuilder<TService> Add<TImplementation>(string name, ServiceLifetime lifetime)
             where TImplementation : class, TService
-        {
-            return Add(name, typeof(TImplementation), lifetime);
-        }
+            => Add(name, typeof(TImplementation), lifetime);
 
         private NamedServiceFactoryBuilder<TService> Add<TImplementation>(string name, Func<IServiceProvider, TImplementation> implementationFactory, ServiceLifetime lifetime)
             where TImplementation : class, TService
