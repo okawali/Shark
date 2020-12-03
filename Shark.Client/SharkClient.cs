@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Shark.Constants;
 using Shark.Data;
 using Shark.DependencyInjection.Extensions;
