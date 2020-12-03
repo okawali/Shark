@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using Shark.Constants;
 using Shark.Data;
 using Shark.DependencyInjection.Extensions;
@@ -20,11 +22,7 @@ namespace Shark.Client
 {
     public class SharkClient : ISharkClient
     {
-#if DEBUG
-        private readonly TimeSpan MAX_WAIT_TIME = TimeSpan.FromSeconds(10);
-#else
-        private readonly TimeSpan MAX_WAIT_TIME = TimeSpan.FromMinutes(1);
-#endif
+        private readonly TimeSpan _maxWaitTime;
         private TcpClient _tcp;
         private SemaphoreSlim _writeSemaphore;
         private NetworkStream _stream;
@@ -55,6 +53,7 @@ namespace Shark.Client
            )
         {
             var tcp = new TcpClient(AddressFamily.InterNetworkV6);
+            var configure = serviceProvider.GetService<IConfiguration>();
             tcp.Client.DualMode = true;
 
             _tcp = tcp;
@@ -74,6 +73,16 @@ namespace Shark.Client
             Cryptor = serviceProvider.GetByConfiguration<ICryptor>();
             _keyGenerator = serviceProvider.GetByConfiguration<IKeyGenerator>();
             _authenticator = serviceProvider.GetByConfiguration<IAuthenticator>();
+
+            if (!int.TryParse(configure?["client:maxWaitTime"], out var seconds) || seconds <= 0) 
+            {
+#if DEBUG
+                seconds = 10;
+#else
+                seconds = 60;
+#endif
+            }
+            _maxWaitTime = TimeSpan.FromSeconds(seconds);
         }
 
         public void ConfigureCryptor(ReadOnlySpan<byte> password)
@@ -198,7 +207,7 @@ namespace Shark.Client
                 }
                 return readTask.Result;
             }
-            throw new SharkException($"No operation for more than {MAX_WAIT_TIME}");
+            throw new SharkException($"No operation for more than {_maxWaitTime}");
         }
 
         public void CloseSend()
@@ -240,7 +249,7 @@ namespace Shark.Client
                 return;
             }
 
-            throw new SharkException($"No operation for more than {MAX_WAIT_TIME}");
+            throw new SharkException($"No operation for more than {_maxWaitTime}");
         }
 
         private async Task WriteInternal(BlockData block)
@@ -375,13 +384,13 @@ namespace Shark.Client
 
             if (RemoteClients.Count == 0 && DisconnectQueue.IsEmpty && Interlocked.Exchange(ref _closeTimerStarted, 1) == 0)
             {
-                _closeTimer.Change(MAX_WAIT_TIME, Timeout.InfiniteTimeSpan);
+                _closeTimer.Change(_maxWaitTime, Timeout.InfiniteTimeSpan);
             }
         }
 
         private void OnCloseTimeout(object state)
         {
-            Logger.LogWarning($"Client {Id} has suspended for more than {MAX_WAIT_TIME}, closeing");
+            Logger.LogWarning($"Client {Id} has suspended for more than {_maxWaitTime}, closeing");
             _stopInternal.TrySetResult(0);
         }
 
@@ -401,7 +410,7 @@ namespace Shark.Client
             return id;
         }
 
-        #region IDisposable Support
+#region IDisposable Support
 
         protected virtual void Dispose(bool disposing)
         {
@@ -452,7 +461,7 @@ namespace Shark.Client
             Dispose(true);
             GC.SuppressFinalize(this);
         }
-        #endregion
+#endregion
 
         public async Task<ISocketClient> ConnectTo(IPAddress address, int port, RemoteType type = RemoteType.Tcp, int? id = null)
         {
