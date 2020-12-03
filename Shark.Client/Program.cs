@@ -137,15 +137,15 @@ namespace Shark.Client
                                     };
                                     options.MaxClientCount = maxCount;
                                 })
-                                .Configure<SecurityOptions<ICryptor>>(options =>
+                                .Configure<GenericOptions<ICryptor>>(options =>
                                 {
                                     options.Name = configuration["shark:crypto"];
                                 })
-                                .Configure<SecurityOptions<IKeyGenerator>>(options =>
+                                .Configure<GenericOptions<IKeyGenerator>>(options =>
                                 {
                                     options.Name = configuration["shark:keygen"];
                                 })
-                                .Configure<SecurityOptions<IAuthenticator>>(options =>
+                                .Configure<GenericOptions<IAuthenticator>>(options =>
                                 {
                                     options.Name = configuration["shark:auth"];
                                 })

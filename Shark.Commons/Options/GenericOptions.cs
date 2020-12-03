@@ -1,6 +1,6 @@
 ﻿namespace Shark.Options
 {
-    public class SecurityOptions<TService>
+    public class GenericOptions<TService>
         where TService : class
     {
         public string Name { get; set; }

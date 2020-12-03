@@ -17,7 +17,7 @@ namespace Shark.DependencyInjection.Extensions
         public static TService GetByConfiguration<TService>(this IServiceProvider services)
             where TService : class
         {
-            var option = services.GetService<IOptions<SecurityOptions<TService>>>();
+            var option = services.GetService<IOptions<GenericOptions<TService>>>();
 
             return GetByName<TService>(services, option.Value.Name);
         }
