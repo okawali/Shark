@@ -48,7 +48,6 @@ namespace Shark.Client.Proxy.Socks5
                 RSV = request.RSV,
                 Remote = new SocksRemote()
                 {
-
                     AddressType = bindedEndPoint.AddressFamily == AddressFamily.InterNetworkV6 ? SocksAddressType.IPV6 : SocksAddressType.IPV4,
                     Address = AddressUtils.GetVaildLocalIpAddress(bindedEndPoint),
                     Port = (ushort)bindedEndPoint.Port,

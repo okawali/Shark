@@ -26,7 +26,7 @@ namespace Shark.Data
             {
                 AddressType = buffer.Span[0]
             };
-            result.Address = DecodeAddress(buffer.Slice(1), result.AddressType, out var other);
+            result.Address = DecodeAddress(buffer[1..], result.AddressType, out var other);
             using (var pin = other.Pin())
             {
                 byte* ptr = (byte*)pin.Pointer;
@@ -37,7 +37,7 @@ namespace Shark.Data
                 ptr[1] = ptr[0];
                 ptr[0] = tmp;
             }
-            left = other.Slice(2);
+            left = other[2..];
             return result;
         }
 
@@ -50,9 +50,9 @@ namespace Shark.Data
             fixed (byte* ptr = result)
             {
                 *(ushort*)(ptr + result.Length - 2) = Port;
-                var tmp = result[result.Length - 1];
-                result[result.Length - 1] = result[result.Length - 2];
-                result[result.Length - 2] = tmp;
+                var tmp = result[^1];
+                result[^1] = result[^2];
+                result[^2] = tmp;
             }
             return result;
         }
@@ -150,18 +150,18 @@ namespace Shark.Data
                 case SocksRemoteType.IPV4:
                     addressBytes = buffer.Slice(0, 4).ToArray();
                     result = new IPAddress(addressBytes).ToString();
-                    left = buffer.Slice(4);
+                    left = buffer[4..];
                     break;
                 case SocksRemoteType.DOMAIN:
                     int count = buffer.Span[0];
-                    using (var pin = buffer.Slice(1).Pin())
+                    using (var pin = buffer[1..].Pin())
                         result = Encoding.ASCII.GetString((byte*)pin.Pointer, count);
-                    left = buffer.Slice(count + 1);
+                    left = buffer[(count + 1)..];
                     break;
                 case SocksRemoteType.IPV6:
-                    addressBytes = buffer.Slice(0, 16).ToArray(); ;
+                    addressBytes = buffer.ToArray(); ;
                     result = new IPAddress(addressBytes).ToString();
-                    left = buffer.Slice(4);
+                    left = buffer[4..];
                     break;
                 default:
                     left = buffer;
