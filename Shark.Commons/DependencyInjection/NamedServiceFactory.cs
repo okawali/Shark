@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Shark.DependencyInjection
 {
-    public class NamedServiceFactory<TService> : INamedServiceFactory<TService>
+    internal class NamedServiceFactory<TService> : INamedServiceFactory<TService>
         where TService : class
     {
         private readonly IServiceProvider _servcies;

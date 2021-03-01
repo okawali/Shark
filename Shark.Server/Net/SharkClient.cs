@@ -108,7 +108,7 @@ namespace Shark.Server.Net
             var header = new byte[BlockData.HEADER_SIZE];
             var needRead = BlockData.HEADER_SIZE;
             var totalRead = 0;
-            var readed = 0;
+            int readed;
             while ((readed = await ReadAsync(new Memory<byte>(header, totalRead, needRead - totalRead))) != 0)
             {
                 totalRead += readed;
@@ -138,8 +138,7 @@ namespace Shark.Server.Net
 
             var data = new byte[length];
             var totalReaded = 0;
-            var readed = 0;
-
+            int readed;
             while ((readed = await ReadAsync(new Memory<byte>(data, totalReaded, length - totalReaded))) != 0)
             {
                 totalReaded += readed;
