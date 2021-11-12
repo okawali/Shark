@@ -5,15 +5,16 @@ using Shark.Net;
 using Shark.Net.Server;
 using Shark.Security.Authentication;
 using Shark.Security.Crypto;
+using Shark.Tasks;
 using Shark.Utils;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Text.Json;
 
 namespace Shark.Server.Net
 {
@@ -34,7 +35,8 @@ namespace Shark.Server.Net
 
         public abstract event Action<ISocketClient> RemoteDisconnected;
 
-        private SemaphoreSlim _writeSemaphore;
+        private SingleThreadingScheduler _taskScheduler;
+        private TaskFactory _taskFactory;
         private Timer _timer;
 
         public SharkClient(SharkServer server)
@@ -43,7 +45,8 @@ namespace Shark.Server.Net
             Server = server;
             RemoteClients = new ConcurrentDictionary<int, ISocketClient>();
             CanRead = true;
-            _writeSemaphore = new SemaphoreSlim(1, 1);
+            _taskScheduler = new SingleThreadingScheduler();
+            _taskFactory = new TaskFactory(_taskScheduler);
             DisconnectQueue = new ConcurrentQueue<int>();
             _timer = new Timer(OnTimeOut, null, 2000, 2000);
         }
@@ -60,24 +63,19 @@ namespace Shark.Server.Net
             return block;
         }
 
-        public virtual async Task WriteBlock(BlockData block)
+        public virtual Task WriteBlock(BlockData block)
         {
-            await _writeSemaphore.WaitAsync();
-            try
+            return _taskFactory.StartNew(() =>
             {
                 var header = block.GenerateHeader().ToArray();
 
-                await WriteAsync(header);
-                await WriteAsync(block.Data);
+                WriteAsync(header).AsTask().Wait();
+                WriteAsync(block.Data).AsTask().Wait();
 
-                await FlushAsync();
+                FlushAsync().Wait();
 
                 Logger.LogDebug("Write {0}", block);
-            }
-            finally
-            {
-                _writeSemaphore.Release();
-            }
+            });
         }
 
         public void EncryptBlock(ref BlockData block)
@@ -283,18 +281,21 @@ namespace Shark.Server.Net
                     {
                         http.Value.Dispose();
                     }
+                    _taskScheduler.Dispose();
                     RemoteClients.Clear();
                     _timer.Dispose();
-                    _writeSemaphore.Dispose();
                     Authenticator.Dispose();
                     Cryptor.Dispose();
-                    _timer = null;
-                    _writeSemaphore = null;
-                    RemoteClients = null;
+
                 }
 
                 // free unmanaged resources (unmanaged objects) and override a finalizer below.
                 // set large fields to null.
+
+                _taskScheduler = null;
+                _taskFactory = null;
+                _timer = null;
+                RemoteClients = null;
                 Disposed = true;
             }
         }

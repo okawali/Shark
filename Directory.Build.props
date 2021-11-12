@@ -1,8 +1,8 @@
 <Project>
   <PropertyGroup>
-    <VersionPrefix>7.0.1</VersionPrefix>
+    <VersionPrefix>7.1.0</VersionPrefix>
     <VersionSuffix></VersionSuffix>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <Authors>Norgerman</Authors>
     <PackageTags>Shark</PackageTags>
     <Copyright>Copyright 2019 (c) Norgerman.</Copyright>
