@@ -7,7 +7,6 @@ using Shark.DependencyInjection.Extensions;
 using Shark.Net;
 using Shark.Security.Authentication;
 using Shark.Security.Crypto;
-using Shark.Tasks;
 using Shark.Utils;
 using System;
 using System.Collections.Concurrent;
@@ -25,8 +24,7 @@ namespace Shark.Client
     {
         private readonly TimeSpan _maxWaitTime;
         private TcpClient _tcp;
-        private SingleThreadingScheduler _taskScheduler;
-        private TaskFactory _taskFactory;
+        private SemaphoreSlim _writeSemaphore;
         private NetworkStream _stream;
         public IDictionary<int, ISocketClient> RemoteClients { private set; get; }
         public ConcurrentQueue<int> DisconnectQueue { get; private set; }
@@ -44,10 +42,10 @@ namespace Shark.Client
 
         private readonly TaskCompletionSource<int> _stopInternal;
         private readonly object _syncRoot;
-        private Timer _disconnectTimer;
-        private Timer _closeTimer;
-        private IKeyGenerator _keyGenerator;
-        private IAuthenticator _authenticator;
+        private readonly Timer _disconnectTimer;
+        private readonly Timer _closeTimer;
+        private readonly IKeyGenerator _keyGenerator;
+        private readonly IAuthenticator _authenticator;
         private int _closeTimerStarted;
 
         public SharkClient(IServiceProvider serviceProvider,
@@ -63,12 +61,11 @@ namespace Shark.Client
             ServiceProvider = serviceProvider;
             RemoteClients = new ConcurrentDictionary<int, ISocketClient>();
             DisconnectQueue = new ConcurrentQueue<int>();
+            _writeSemaphore = new SemaphoreSlim(1, 1);
             _stopInternal = new TaskCompletionSource<int>();
             _syncRoot = new object();
             _disconnectTimer = new Timer(OnDisconnectTimeout, null, 2000, 2000);
             _closeTimer = new Timer(OnCloseTimeout, null, Timeout.Infinite, Timeout.Infinite);
-            _taskScheduler = new SingleThreadingScheduler();
-            _taskFactory = new TaskFactory(_taskScheduler);
             _closeTimerStarted = 0;
             Logger = logger;
             Initialized = false;
@@ -255,26 +252,25 @@ namespace Shark.Client
             throw new SharkException($"No operation for more than {_maxWaitTime}");
         }
 
-        private Task WriteInternal(BlockData block)
+        private async Task WriteInternal(BlockData block)
         {
-            return _taskFactory.StartNew(() =>
+            await _writeSemaphore.WaitAsync();
+            try
             {
-                try
-                {
-                    var header = block.GenerateHeader().ToArray();
-                    WriteAsync(header).AsTask().Wait();
+                var header = block.GenerateHeader().ToArray();
+                await WriteAsync(header);
 
-                    if (block.Data.Length != 0)
-                    {
-                        WriteAsync(block.Data).AsTask().Wait();
-                    }
-                    FlushAsync().Wait();
-                }
-                finally
+                if (block.Data.Length != 0)
                 {
-                    Logger.LogDebug("Sending {0}", block);
+                    await WriteAsync(block.Data);
                 }
-            });
+                await FlushAsync();
+            }
+            finally
+            {
+                _writeSemaphore.Release();
+                Logger.LogDebug("Sending {0}", block);
+            }
         }
 
         public ValueTask<int> ReadAsync(Memory<byte> buffer)
@@ -332,7 +328,8 @@ namespace Shark.Client
 
             var data = new byte[length];
             var totalReaded = 0;
-            int readed;
+            var readed = 0;
+
             while ((readed = await ReadAsync(new Memory<byte>(data, totalReaded, length - totalReaded))) != 0)
             {
                 totalReaded += readed;
@@ -433,9 +430,9 @@ namespace Shark.Client
                         {
                             Logger.LogWarning("Socket errored before shutdown and disconnect");
                         }
-                        _taskScheduler.Dispose();
                         _stream.Dispose();
                         _tcp.Dispose();
+                        _writeSemaphore.Dispose();
                         _disconnectTimer.Dispose();
                         _authenticator.Dispose();
                         _keyGenerator.Dispose();
@@ -445,13 +442,7 @@ namespace Shark.Client
 
                     // free unmanaged resources (unmanaged objects) and override a finalizer below.
                     // set large fields to null.
-                    _taskScheduler = null;
-                    _taskFactory = null;
-                    _tcp = null;
-                    _stream = null;
-                    _disconnectTimer = null;
-                    _authenticator = null;
-                    _keyGenerator = null;
+
                     Disposed = true;
                 }
             }
