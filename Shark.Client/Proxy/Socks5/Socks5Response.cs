@@ -49,7 +49,7 @@ namespace Shark.Client.Proxy.Socks5
                 Remote = new SocksRemote()
                 {
                     AddressType = bindedEndPoint.AddressFamily == AddressFamily.InterNetworkV6 ? SocksAddressType.IPV6 : SocksAddressType.IPV4,
-                    Address = AddressUtils.GetVaildLocalIpAddress(bindedEndPoint),
+                    Address = AddressUtils.GetValidLocalIpAddress(bindedEndPoint),
                     Port = (ushort)bindedEndPoint.Port,
                 }
             };

@@ -6,13 +6,13 @@ namespace Shark.DependencyInjection
     internal class NamedServiceFactory<TService> : INamedServiceFactory<TService>
         where TService : class
     {
-        private readonly IServiceProvider _servcies;
+        private readonly IServiceProvider _services;
         private readonly IDictionary<string, Type> _registrations;
         private readonly string _fallback;
 
         internal NamedServiceFactory(IServiceProvider services, IDictionary<string, Type> registrations, string fallback)
         {
-            _servcies = services;
+            _services = services;
             _registrations = registrations;
             _fallback = fallback;
         }
@@ -32,7 +32,7 @@ namespace Shark.DependencyInjection
                 }
             }
 
-            return (TService)_servcies.GetService(type);
+            return (TService)_services.GetService(type);
         }
     }
 }

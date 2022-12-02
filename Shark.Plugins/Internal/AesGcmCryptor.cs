@@ -34,9 +34,9 @@ namespace Shark.Plugins.Internal
         {
             var result = new byte[inputBuffer.Length + 16];
             var tag = new Span<byte>(result, inputBuffer.Length, 16);
-            var ciperText = new Span<byte>(result, 0, inputBuffer.Length);
+            var cipherText = new Span<byte>(result, 0, inputBuffer.Length);
 
-            _gcm.Encrypt(_nonce, inputBuffer, ciperText, tag);
+            _gcm.Encrypt(_nonce, inputBuffer, cipherText, tag);
 
             return result;
         }

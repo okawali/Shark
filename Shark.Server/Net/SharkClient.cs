@@ -108,10 +108,10 @@ namespace Shark.Server.Net
             var header = new byte[BlockData.HEADER_SIZE];
             var needRead = BlockData.HEADER_SIZE;
             var totalRead = 0;
-            int readed;
-            while ((readed = await ReadAsync(new Memory<byte>(header, totalRead, needRead - totalRead))) != 0)
+            int read;
+            while ((read = await ReadAsync(new Memory<byte>(header, totalRead, needRead - totalRead))) != 0)
             {
-                totalRead += readed;
+                totalRead += read;
 
                 if (needRead == totalRead)
                 {
@@ -137,13 +137,13 @@ namespace Shark.Server.Net
             }
 
             var data = new byte[length];
-            var totalReaded = 0;
-            int readed;
-            while ((readed = await ReadAsync(new Memory<byte>(data, totalReaded, length - totalReaded))) != 0)
+            var totalRead = 0;
+            int read;
+            while ((read = await ReadAsync(new Memory<byte>(data, totalRead, length - totalRead))) != 0)
             {
-                totalReaded += readed;
+                totalRead += read;
 
-                if (length == totalReaded)
+                if (length == totalRead)
                 {
                     break;
                 }
@@ -158,7 +158,7 @@ namespace Shark.Server.Net
             var data = JsonSerializer.Serialize(ids);
             block.Data = Encoding.UTF8.GetBytes(data);
             EncryptBlock(ref block);
-            Logger.LogDebug("Disconnet {0}", data);
+            Logger.LogDebug("Disconnect {0}", data);
             await WriteBlock(block);
         }
 

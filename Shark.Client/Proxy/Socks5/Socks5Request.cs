@@ -29,7 +29,7 @@ namespace Shark.Client.Proxy.Socks5
         public short RSV { private set; get; } = 0x0000;
         public byte Frag { private set; get; }
         public UdpPackData Data { set; get; }
-        public bool Fraged => Frag != 0;
+        public bool Fragged => Frag != 0;
 
         public static Socks5UdpRelayRequest Parse(byte[] buffer)
         {

@@ -21,12 +21,12 @@ namespace Shark.Client.Proxy
 
         public BaseSocketProxyServer(ProxyProtocol protocol,
             IServiceProvider serviceProvider,
-            IOptions<BindingOptions> bindingOptons,
+            IOptions<BindingOptions> bindingOptions,
             IOptions<ProxyRemoteOptions> proxyOptions)
             : base(serviceProvider, proxyOptions)
         {
             Protocol = protocol;
-            BindingOptions = bindingOptons;
+            BindingOptions = bindingOptions;
         }
 
         public void Bind(IPEndPoint endPoint)
@@ -88,7 +88,7 @@ namespace Shark.Client.Proxy
                         await shark.ProxyTo(proxyClient.Id, host);
                     }
 
-                    proxyClient.RemoteDisconnected += OnClientRemoteDisconencted;
+                    proxyClient.RemoteDisconnected += OnClientRemoteDisconnected;
                 }
                 catch (AuthenticationException ex)
                 {
@@ -116,7 +116,7 @@ namespace Shark.Client.Proxy
                         catch (Exception e)
                         {
                             shark.Dispose();
-                            shark.Logger.LogWarning($"Shark client {shark.Id} initlialize failed, {e} ");
+                            shark.Logger.LogWarning($"Shark client {shark.Id} initialization failed, {e} ");
                             throw;
                         }
                         finally

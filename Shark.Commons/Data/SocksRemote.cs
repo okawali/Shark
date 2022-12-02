@@ -12,7 +12,7 @@ namespace Shark.Data
         public const byte IPV6 = 4;
     }
 
-    // Use rfc-1928 Socks5 Adderss definition
+    // Use rfc-1928 Socks5 Address definition
     public class SocksRemote : ICloneable
     {
         public byte AddressType { set; get; }
@@ -144,24 +144,20 @@ namespace Shark.Data
         public static unsafe string DecodeAddress(ReadOnlyMemory<byte> buffer, byte addressType, out ReadOnlyMemory<byte> left)
         {
             string result = null;
-            byte[] addressBytes;
             switch (addressType)
             {
                 case SocksRemoteType.IPV4:
-                    addressBytes = buffer.Slice(0, 4).ToArray();
-                    result = new IPAddress(addressBytes).ToString();
+                    result = new IPAddress(buffer[..4].Span).ToString();
                     left = buffer[4..];
                     break;
                 case SocksRemoteType.DOMAIN:
                     int count = buffer.Span[0];
-                    using (var pin = buffer[1..].Pin())
-                        result = Encoding.ASCII.GetString((byte*)pin.Pointer, count);
+                    result = Encoding.ASCII.GetString(buffer[1..(count + 1)].Span);
                     left = buffer[(count + 1)..];
                     break;
                 case SocksRemoteType.IPV6:
-                    addressBytes = buffer.ToArray(); ;
-                    result = new IPAddress(addressBytes).ToString();
-                    left = buffer[4..];
+                    result = new IPAddress(buffer[..16].Span).ToString();
+                    left = buffer[16..];
                     break;
                 default:
                     left = buffer;

@@ -81,14 +81,14 @@ namespace Shark.Client.Proxy.Http
         {
             if (IsConnect)
             {
-                var splited = host.Split(":");
-                if (splited.Length != 2)
+                var splitted = host.Split(":");
+                if (splitted.Length != 2)
                 {
                     return false;
                 }
-                HostData.Address = splited[0];
+                HostData.Address = splitted[0];
 
-                if (ushort.TryParse(splited[1], out var port))
+                if (ushort.TryParse(splitted[1], out var port))
                 {
                     HostData.Port = port;
                     return true;

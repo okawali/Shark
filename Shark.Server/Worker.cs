@@ -30,7 +30,7 @@ namespace Shark.Server
                      catch (Exception e)
                      {
 
-                         client.Logger.LogError(e, "Shark clinet errored");
+                         client.Logger.LogError(e, "Shark client errored");
                      }
                      finally
                      {

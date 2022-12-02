@@ -48,13 +48,13 @@ namespace Shark.Server.Net.Internal
 
         public async ValueTask<int> ReadAsync(Memory<byte> buffer)
         {
-            var readed = await _stream.ReadAsync(buffer);
-            if (readed == 0)
+            var read = await _stream.ReadAsync(buffer);
+            if (read == 0)
             {
-                CloseConnetion();
+                CloseConnection();
             }
 
-            return readed;
+            return read;
         }
 
         public ValueTask WriteAsync(ReadOnlyMemory<byte> buffer)
@@ -62,7 +62,7 @@ namespace Shark.Server.Net.Internal
             return _stream.WriteAsync(buffer);
         }
 
-        private void CloseConnetion()
+        private void CloseConnection()
         {
             try
             {
