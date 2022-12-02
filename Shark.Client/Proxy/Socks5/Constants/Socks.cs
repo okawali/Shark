@@ -11,7 +11,7 @@
         //Unsupported
         public const byte GSSAPI = 1;
         public const byte PASSWORD = 2;
-        public const byte UNAVALIABLE = 0xFF;
+        public const byte UNAVAILABLE = 0xFF;
     }
 
     public static class SocksCommand

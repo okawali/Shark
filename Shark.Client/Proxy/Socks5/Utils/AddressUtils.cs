@@ -9,7 +9,7 @@ namespace Shark.Client.Proxy.Socks5.Utils
 {
     internal static class AddressUtils
     {
-        public static string GetVaildLocalIpAddress(IPEndPoint iPEndPoint)
+        public static string GetValidLocalIpAddress(IPEndPoint iPEndPoint)
         {
             if (!iPEndPoint.Address.Equals(IPAddress.Any) && !iPEndPoint.Address.Equals(IPAddress.IPv6Any))
             {

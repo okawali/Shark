@@ -7,7 +7,7 @@ namespace Shark.Security.Crypto
         CryptoInfo Info { get; }
 
         /// <summary>
-        /// init the crypter
+        /// init the cryptor
         /// </summary>
         void Init(CryptoKey key);
 

@@ -7,7 +7,7 @@ namespace Shark.Utils
     {
         public static unsafe byte[] GenerateFastConnectData(int id, ReadOnlySpan<byte> challenge, ReadOnlySpan<byte> password, ReadOnlySpan<byte> encryptedData)
         {
-            //|--id(4)--|---challengeLength(4, le)----|------challenge-------|----passwordlength(4, le)--|--password--|--data--|
+            //|--id(4)--|---challengeLength(4, le)----|------challenge-------|----password_length(4, le)--|--password--|--data--|
             var result = new byte[12 + challenge.Length + password.Length + encryptedData.Length];
 
             challenge.CopyTo(new Span<byte>(result, 8, challenge.Length));

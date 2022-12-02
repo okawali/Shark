@@ -8,10 +8,10 @@ namespace Shark.Plugins.Internal
 {
     /// <summary>
     /// Provider AES crypt service
-    /// default keysize is 256(in bits)
-    /// valid keysize 128 192 256(in bits)
+    /// default keySize is 256(in bits)
+    /// valid keySize 128 192 256(in bits)
     /// default mode is cbc
-    /// default paddingmode is pkcs7
+    /// default paddingMode is pkcs7
     /// </summary>
     sealed class AesCryptor : Aes, ICryptor
     {
@@ -33,7 +33,7 @@ namespace Shark.Plugins.Internal
 
         /// <summary>
         /// Use given key and IV to create a instance
-        /// keysize depends on the length of key in bits
+        /// keySize depends on the length of key in bits
         /// </summary>
         /// <param name="key">Key</param>
         /// <param name="iv">IV</param>
@@ -180,7 +180,7 @@ namespace Shark.Plugins.Internal
         }
 
         /// <summary>
-        /// Generate a key(default keysize is 256)
+        /// Generate a key(default keySize is 256)
         /// </summary>
         public override void GenerateKey()
         {

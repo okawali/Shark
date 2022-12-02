@@ -40,10 +40,10 @@ namespace Shark.Client.Proxy.Socks5
             ISharkClient shark,
             ILogger<Socks5Client> logger,
             IConfiguration configuration,
-            IServiceProvider servicdeProvider) : base(server, shark)
+            IServiceProvider serviceProvider) : base(server, shark)
         {
             Logger = logger;
-            ServiceProvider = servicdeProvider;
+            ServiceProvider = serviceProvider;
             _client = tcp;
             _stream = _client.GetStream();
             _pipe = new Pipe(DefaultPipeOptions);
@@ -141,7 +141,7 @@ namespace Shark.Client.Proxy.Socks5
                 }
             }
 
-            byte auth = valid ? SocksAuthType.NO_AUTH : SocksAuthType.UNAVALIABLE;
+            byte auth = valid ? SocksAuthType.NO_AUTH : SocksAuthType.UNAVAILABLE;
 
             await WriteAsync(new byte[] { Socks.VERSION, auth });
             await FlushAsync();
@@ -169,7 +169,7 @@ namespace Shark.Client.Proxy.Socks5
             }
             else if (_request.Command == SocksCommand.UDP)
             {
-                Logger.LogInformation($"Configing udp relay, {Id}");
+                Logger.LogInformation($"Config udp relay, {Id}");
                 _target = new HostData()
                 {
                     Address = _request.Remote.Address,
@@ -232,31 +232,31 @@ namespace Shark.Client.Proxy.Socks5
         protected async Task<byte[]> ReadBytes(int count)
         {
             var reader = _pipe.Reader;
-            var readed = await reader.ReadAsync();
-            while (readed.Buffer.Length < count)
+            var read = await reader.ReadAsync();
+            while (read.Buffer.Length < count)
             {
-                reader.AdvanceTo(readed.Buffer.Start);
+                reader.AdvanceTo(read.Buffer.Start);
 
                 // check read result status
-                if (readed.IsCompleted)
+                if (read.IsCompleted)
                 {
                     reader.Complete();
-                    throw new SocksException("No enougth data to read");
+                    throw new SocksException("No enough data to read");
                 }
 
-                readed = await reader.ReadAsync();
+                read = await reader.ReadAsync();
             }
 
-            var buffer = readed.Buffer;
+            var buffer = read.Buffer;
             var result = buffer.Slice(0, count);
-            var resutBytes = result.ToArray();
+            var resultBytes = result.ToArray();
 
             reader.AdvanceTo(result.End);
 
-            return resutBytes;
+            return resultBytes;
         }
 
-        private void CloseConnetion()
+        private void CloseConnection()
         {
             if (!(_target?.IsUdp ?? false))
             {
@@ -281,13 +281,13 @@ namespace Shark.Client.Proxy.Socks5
                 while (true)
                 {
                     var memory = writer.GetMemory(BUFFER_SIZE);
-                    int readed = await _stream.ReadAsync(memory);
-                    if (readed == 0)
+                    int read = await _stream.ReadAsync(memory);
+                    if (read == 0)
                     {
                         break;
                     }
 
-                    writer.Advance(readed);
+                    writer.Advance(read);
 
                     var flushResult = await writer.FlushAsync();
 
@@ -321,15 +321,15 @@ namespace Shark.Client.Proxy.Socks5
                     int dataNumber = 0;
                     while (true)
                     {
-                        var readed = await reader.ReadAsync();
-                        var buffer = readed.Buffer;
+                        var read = await reader.ReadAsync();
+                        var buffer = read.Buffer;
                         var len = Math.Min(buffer.Length, BUFFER_SIZE);
                         var used = buffer.Slice(0, len);
                         buffer = buffer.Slice(len);
 
                         if (used.Length == 0)
                         {
-                            if (readed.IsCompleted)
+                            if (read.IsCompleted)
                             {
                                 break;
                             }
@@ -338,11 +338,11 @@ namespace Shark.Client.Proxy.Socks5
                         }
 
                         var block = new BlockData() { Id = Id, BlockNumber = dataNumber++, Type = BlockType.DATA };
-                        var copyedBuffer = used.ToArray();
+                        var copiedBuffer = used.ToArray();
 
                         reader.AdvanceTo(used.End);
 
-                        block.Data = copyedBuffer;
+                        block.Data = copiedBuffer;
                         Shark.EncryptBlock(ref block);
                         await Shark.WriteBlock(block);
                     }
@@ -352,7 +352,7 @@ namespace Shark.Client.Proxy.Socks5
                     Logger.LogError(e, "Socks errored");
                 }
 
-                CloseConnetion();
+                CloseConnection();
                 reader.Complete();
                 _socksFailed = true;
             }).Unwrap();
@@ -376,16 +376,16 @@ namespace Shark.Client.Proxy.Socks5
                             break;
                         }
 
-                        var readed = readTask.Result;
-                        var remote = readed.RemoteEndPoint;
-                        if (readed.Buffer.Length == 0)
+                        var read = readTask.Result;
+                        var remote = read.RemoteEndPoint;
+                        if (read.Buffer.Length == 0)
                         {
                             break;
                         }
-                        var requset = Socks5UdpRelayRequest.Parse(readed.Buffer);
-                        if (requset.Fraged)
+                        var request = Socks5UdpRelayRequest.Parse(read.Buffer);
+                        if (request.Fragged)
                         {
-                            // drop fraged datas
+                            // drop fragged datas
                             continue;
                         }
 
@@ -398,7 +398,7 @@ namespace Shark.Client.Proxy.Socks5
 
                         _lastEndpoint = remote;
                         var block = new BlockData() { Id = Id, BlockNumber = dataNumber++, Type = BlockType.DATA };
-                        block.Data = requset.Data.ToBytes();
+                        block.Data = request.Data.ToBytes();
                         Shark.EncryptBlock(ref block);
                         await Shark.WriteBlock(block);
                     }
@@ -407,7 +407,7 @@ namespace Shark.Client.Proxy.Socks5
                 {
                     Logger.LogError(e, "Socks udp relay errored");
                 }
-                CloseConnetion();
+                CloseConnection();
                 _socksFailed = true;
             }).Unwrap();
         }
@@ -446,15 +446,15 @@ namespace Shark.Client.Proxy.Socks5
 
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer)
         {
-            var read = await _pipe.Reader.ReadAsync();
-            var readed = Math.Min(read.Buffer.Length, buffer.Length);
-            var data = read.Buffer.Slice(0, readed);
+            var readResult = await _pipe.Reader.ReadAsync();
+            var readLength = Math.Min(readResult.Buffer.Length, buffer.Length);
+            var data = readResult.Buffer.Slice(0, readLength);
 
             data.CopyTo(buffer.Span);
 
             _pipe.Reader.AdvanceTo(data.End);
 
-            return (int)readed;
+            return (int)readLength;
         }
 
         public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer)

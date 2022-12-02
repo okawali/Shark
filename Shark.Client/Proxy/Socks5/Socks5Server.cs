@@ -14,9 +14,9 @@ namespace Shark.Client.Proxy.Socks5
         public override ILogger Logger { get; }
 
         public Socks5Server(IServiceProvider serviceProvider,
-            IOptions<BindingOptions> bindingOptons,
+            IOptions<BindingOptions> bindingOptions,
             IOptions<ProxyRemoteOptions> proxyOptions,
-            ILogger<Socks5Server> logger) : base(ProxyProtocol.Socks5, serviceProvider, bindingOptons, proxyOptions)
+            ILogger<Socks5Server> logger) : base(ProxyProtocol.Socks5, serviceProvider, bindingOptions, proxyOptions)
         {
             Logger = logger;
         }

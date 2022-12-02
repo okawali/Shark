@@ -293,10 +293,10 @@ namespace Shark.Client
             var header = new byte[BlockData.HEADER_SIZE];
             var needRead = BlockData.HEADER_SIZE;
             var totalRead = 0;
-            var readed = 0;
-            while ((readed = await ReadAsync(new Memory<byte>(header, totalRead, needRead - totalRead))) != 0)
+            var read = 0;
+            while ((read = await ReadAsync(new Memory<byte>(header, totalRead, needRead - totalRead))) != 0)
             {
-                totalRead += readed;
+                totalRead += read;
 
                 if (needRead == totalRead)
                 {
@@ -304,9 +304,9 @@ namespace Shark.Client
                 }
             }
 
-            if (readed == 0)
+            if (read == 0)
             {
-                CloseConnetion();
+                CloseConnection();
             }
 
             var valid = BlockData.TryParseHeader(new ReadOnlySpan<byte>(header, 0, totalRead), out var block);
@@ -327,29 +327,29 @@ namespace Shark.Client
             }
 
             var data = new byte[length];
-            var totalReaded = 0;
-            var readed = 0;
+            var totalRead = 0;
+            var read = 0;
 
-            while ((readed = await ReadAsync(new Memory<byte>(data, totalReaded, length - totalReaded))) != 0)
+            while ((read = await ReadAsync(new Memory<byte>(data, totalRead, length - totalRead))) != 0)
             {
-                totalReaded += readed;
+                totalRead += read;
 
-                if (length == totalReaded)
+                if (length == totalRead)
                 {
                     break;
                 }
             }
 
-            if (readed == 0)
+            if (read == 0)
             {
-                CloseConnetion();
+                CloseConnection();
             }
 
             return data;
         }
 
 
-        private void CloseConnetion()
+        private void CloseConnection()
         {
             CloseSend();
             Logger.LogInformation("Shark no data to read, closed {0}", Id);
@@ -390,7 +390,7 @@ namespace Shark.Client
 
         private void OnCloseTimeout(object state)
         {
-            Logger.LogWarning($"Client {Id} has suspended for more than {_maxWaitTime}, closeing");
+            Logger.LogWarning($"Client {Id} has suspended for more than {_maxWaitTime}, closing");
             _stopInternal.TrySetResult(0);
         }
 
@@ -400,7 +400,7 @@ namespace Shark.Client
             var data = JsonSerializer.Serialize(ids);
             block.Data = Encoding.UTF8.GetBytes(data);
             EncryptBlock(ref block);
-            Logger.LogDebug("Disconnet {0}", data);
+            Logger.LogDebug("Disconnect {0}", data);
             await WriteBlock(block);
         }
 
@@ -440,7 +440,6 @@ namespace Shark.Client
                         RemoteClients.Clear();
                     }
 
-                    // free unmanaged resources (unmanaged objects) and override a finalizer below.
                     // set large fields to null.
 
                     Disposed = true;

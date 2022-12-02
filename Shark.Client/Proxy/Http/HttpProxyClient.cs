@@ -27,9 +27,9 @@ namespace Shark.Client.Proxy.Http
 
         public override event Action<ISocketClient> RemoteDisconnected;
 
-        public HttpProxyClient(TcpClient tcp, IProxyServer server, ISharkClient shark, ILogger<HttpProxyClient> logger, IServiceProvider servicdeProvider) : base(server, shark)
+        public HttpProxyClient(TcpClient tcp, IProxyServer server, ISharkClient shark, ILogger<HttpProxyClient> logger, IServiceProvider serviceProvider) : base(server, shark)
         {
-            ServiceProvider = servicdeProvider;
+            ServiceProvider = serviceProvider;
             Logger = logger;
             _client = tcp;
             _stream = _client.GetStream();
@@ -204,13 +204,13 @@ namespace Shark.Client.Proxy.Http
                 while (true)
                 {
                     var memory = writer.GetMemory(BUFFER_SIZE);
-                    int readed = await _stream.ReadAsync(memory);
-                    if (readed == 0)
+                    int read = await _stream.ReadAsync(memory);
+                    if (read == 0)
                     {
                         break;
                     }
 
-                    writer.Advance(readed);
+                    writer.Advance(read);
 
                     var flushResult = await writer.FlushAsync();
 
@@ -231,25 +231,25 @@ namespace Shark.Client.Proxy.Http
 
         }
 
-        private Task ProcessData(int initalNumber = 0)
+        private Task ProcessData(int initialNumber = 0)
         {
             return Task.Factory.StartNew(async () =>
             {
                 var reader = _pipe.Reader;
                 try
                 {
-                    int dataNumber = initalNumber;
+                    int dataNumber = initialNumber;
                     while (true)
                     {
-                        var readed = await reader.ReadAsync();
-                        var buffer = readed.Buffer;
+                        var read = await reader.ReadAsync();
+                        var buffer = read.Buffer;
                         var len = Math.Min(buffer.Length, BUFFER_SIZE);
                         var used = buffer.Slice(0, len);
                         buffer = buffer.Slice(len);
 
                         if (used.Length == 0)
                         {
-                            if (readed.IsCompleted)
+                            if (read.IsCompleted)
                             {
                                 break;
                             }
@@ -258,11 +258,11 @@ namespace Shark.Client.Proxy.Http
                         }
 
                         var block = new BlockData() { Id = Id, BlockNumber = dataNumber++, Type = BlockType.DATA };
-                        var copyedBuffer = used.ToArray();
+                        var copiedBuffer = used.ToArray();
 
                         reader.AdvanceTo(used.End);
 
-                        block.Data = copyedBuffer;
+                        block.Data = copiedBuffer;
                         Shark.EncryptBlock(ref block);
                         await Shark.WriteBlock(block);
                     }
@@ -272,13 +272,13 @@ namespace Shark.Client.Proxy.Http
                     Logger.LogError(e, "Http errored");
                 }
 
-                CloseConnetion();
+                CloseConnection();
                 reader.Complete();
                 _httpFailed = true;
             }).Unwrap();
         }
 
-        private void CloseConnetion()
+        private void CloseConnection()
         {
             try
             {
@@ -317,15 +317,15 @@ namespace Shark.Client.Proxy.Http
 
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer)
         {
-            var read = await _pipe.Reader.ReadAsync();
-            var readed = Math.Min(read.Buffer.Length, buffer.Length);
-            var data = read.Buffer.Slice(0, readed);
+            var readResult = await _pipe.Reader.ReadAsync();
+            var readLength = Math.Min(readResult.Buffer.Length, buffer.Length);
+            var data = readResult.Buffer.Slice(0, readLength);
 
             data.CopyTo(buffer.Span);
 
             _pipe.Reader.AdvanceTo(data.End);
 
-            return (int)readed;
+            return (int)readLength;
         }
 
         public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer)

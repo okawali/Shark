@@ -14,9 +14,9 @@ namespace Shark.Client.Proxy.Http
         public override ILogger Logger { get; }
 
         public HttpProxyServer(IServiceProvider serviceProvider,
-            IOptions<BindingOptions> bindingOptons,
+            IOptions<BindingOptions> bindingOptions,
             IOptions<ProxyRemoteOptions> proxyOptions,
-            ILogger<HttpProxyServer> logger) : base(ProxyProtocol.Http, serviceProvider, bindingOptons, proxyOptions)
+            ILogger<HttpProxyServer> logger) : base(ProxyProtocol.Http, serviceProvider, bindingOptions, proxyOptions)
         {
             Logger = logger;
         }

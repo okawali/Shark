@@ -78,7 +78,7 @@ namespace Shark.Client.Proxy
 
             if (Sharks.Count == 0)
             {
-                // just throw an connot connect error
+                // just throw an cannot connect error
                 Logger.LogWarning($"Connect to Remote shark server {Remote} failed");
 
                 throw new SharkException("Connect to Remote shark server {Remote} failed");
@@ -178,7 +178,7 @@ namespace Shark.Client.Proxy
             }).Unwrap();
         }
 
-        protected void OnClientRemoteDisconencted(ISocketClient client)
+        protected void OnClientRemoteDisconnected(ISocketClient client)
         {
             client.Dispose();
             RemoveClient(client as IProxyClient);
@@ -205,7 +205,6 @@ namespace Shark.Client.Proxy
                     Sharks.Clear();
                 }
 
-                // free unmanaged resources (unmanaged objects) and override a finalizer below.
                 // set large fields to null.
                 Disposed = true;
             }
