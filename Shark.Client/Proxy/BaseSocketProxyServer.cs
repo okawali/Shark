@@ -42,19 +42,25 @@ namespace Shark.Client.Proxy
         {
             Bind(BindingOptions.Value.EndPoint);
             _listener.Start(BindingOptions.Value.Backlog);
-            Logger.LogInformation("Started, listening on {0}, protocol: {1}, max connections: {2}, backlog: {3}",
+            Logger.LogInformation("Started, listening on {Endpoint}, protocol: {Protocol}, max connections: {Max}, backlog: {Backlog}",
                 _listener.LocalEndpoint, Protocol, MaxCount == 0 ? "unlimited" : MaxCount.ToString(), BindingOptions.Value.Backlog);
-            Logger.LogInformation($"Shark server {Remote}");
-            token.Register(() => _listener.Stop());
-            return StartAccept();
+            Logger.LogInformation("Shark server {Remote}", Remote);
+            return StartAccept(token);
         }
 
-        private async Task StartAccept()
+        private async Task StartAccept(CancellationToken token)
         {
-            while (true)
+            try
             {
-                var client = await _listener.AcceptTcpClientAsync();
-                StartClientLoop(client);
+                while (true)
+                {
+                    var client = await _listener.AcceptTcpClientAsync(token);
+                    StartClientLoop(client);
+                }
+            }
+            finally
+            {
+                _listener.Stop();
             }
         }
 

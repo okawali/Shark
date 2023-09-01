@@ -29,7 +29,7 @@ namespace Shark.Server.Net.Internal
             }
         }
 
-        public DefaultSharkServer(IServiceProvider serviceProvider, ILogger<DefaultSharkServer> logger, 
+        public DefaultSharkServer(IServiceProvider serviceProvider, ILogger<DefaultSharkServer> logger,
             IOptions<BindingOptions> bindingOptions)
             : base()
         {
@@ -42,14 +42,21 @@ namespace Shark.Server.Net.Internal
         {
             Bind(_bindingOptions.Value.EndPoint);
             _listener.Start(_bindingOptions.Value.Backlog);
-            Logger.LogInformation($"Server started, listening on {_listener.LocalEndpoint}, backlog: {_bindingOptions.Value.Backlog}");
-            token.Register(() => _listener.Stop());
-            while (true)
+            Logger.LogInformation("Server started, listening on {Endpoint}, backlog: {Backlog}",
+                _listener.LocalEndpoint, _bindingOptions.Value.Backlog);
+            try
             {
-                var client = await _listener.AcceptTcpClientAsync();
-                var sharkClient = ActivatorUtilities.CreateInstance<DefaultSharkClient>(ServiceProvider.CreateScope().ServiceProvider, client, this);
-                client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
-                OnClientConnect(sharkClient);
+                while (true)
+                {
+                    var client = await _listener.AcceptTcpClientAsync(token);
+                    var sharkClient = ActivatorUtilities.CreateInstance<DefaultSharkClient>(ServiceProvider.CreateScope().ServiceProvider, client, this);
+                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+                    OnClientConnect(sharkClient);
+                }
+            }
+            finally
+            {
+                _listener.Stop();
             }
         }
     }
