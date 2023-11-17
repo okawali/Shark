@@ -10,6 +10,5 @@ namespace Shark.Client.Proxy.Socks5
         public SocksException() { }
         public SocksException(string message) : base(message) { }
         public SocksException(string message, Exception inner) : base(message, inner) { }
-        protected SocksException(SerializationInfo info, StreamingContext context) : base(info, context) { }
     }
 }
