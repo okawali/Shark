@@ -1,10 +1,10 @@
-dotnet publish -c Release -r win-x64 --self-contained Shark.Server
-dotnet publish -c Release -r osx-x64 --self-contained Shark.Server
-dotnet publish -c Release -r linux-x64 --self-contained Shark.Server
+dotnet publish -c Release -r win-x64 Shark.Server
+dotnet publish -c Release -r osx-x64 Shark.Server
+dotnet publish -c Release -r linux-x64 Shark.Server
 
-dotnet publish -c Release -r win-x64 --self-contained Shark.Client
-dotnet publish -c Release -r osx-x64 --self-contained Shark.Client
-dotnet publish -c Release -r linux-x64 --self-contained Shark.Client
+dotnet publish -c Release -r win-x64 Shark.Client
+dotnet publish -c Release -r osx-x64 Shark.Client
+dotnet publish -c Release -r linux-x64 Shark.Client
 
 dotnet pack -c Release Shark.Client.Tool
 dotnet pack -c Release Shark.Server.Tool
