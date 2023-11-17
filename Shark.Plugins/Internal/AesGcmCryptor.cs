@@ -17,7 +17,7 @@ namespace Shark.Plugins.Internal
 
         public void Init(CryptoKey key)
         {
-            _gcm = new AesGcm(key.Key);
+            _gcm = new AesGcm(key.Key, 16);
             _nonce = key.IV;
         }
 
