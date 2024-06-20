@@ -262,7 +262,7 @@ namespace Shark.Client.Proxy.Socks5
             {
                 try
                 {
-                    _client.Client.Shutdown(SocketShutdown.Send);
+                    _client.Client?.Shutdown(SocketShutdown.Send);
                 }
                 catch (Exception)
                 {
