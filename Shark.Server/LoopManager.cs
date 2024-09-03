@@ -12,7 +12,7 @@ namespace Shark.Server
 {
     public static class LoopManager
     {
-        private const int BUFFER_SIZE = 1024 * 8;
+        private const int BUFFER_SIZE = 1024 * 1024 * 4;
 
         public static Task RunSharkLoop(this ISharkClient client)
         {
