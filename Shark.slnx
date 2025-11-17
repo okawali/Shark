@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".gitignore" />
+    <File Path="config.yml" />
+    <File Path="Directory.Build.props" />
+    <File Path="LICENSE" />
+    <File Path="privoxy-config.txt" />
+    <File Path="README.md" />
+  </Folder>
+  <Project Path="Shark.Client.Tool/Shark.Client.Tool.csproj" />
+  <Project Path="Shark.Client/Shark.Client.csproj" />
+  <Project Path="Shark.Commons/Shark.Commons.csproj" />
+  <Project Path="Shark.Plugins/Shark.Plugins.csproj" />
+  <Project Path="Shark.Server.Tool/Shark.Server.Tool.csproj" />
+  <Project Path="Shark.Server/Shark.Server.csproj" />
+</Solution>
