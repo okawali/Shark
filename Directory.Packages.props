@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Mono.Options" Version="6.12.0.148" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.0" />
+    <PackageVersion Include="NetEscapades.Configuration.Yaml" Version="3.1.0" />
+    <PackageVersion Include="McMaster.NETCore.Plugins" Version="2.0.0" />
+    <PackageVersion Include="Norgerman.Cryptography.Scrypt" Version="2.5.0" />
+  </ItemGroup>
+</Project>

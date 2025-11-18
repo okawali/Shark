@@ -3,7 +3,7 @@
     <ProjectReference Include="..\Shark.Commons\Shark.Commons.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="McMaster.NETCore.Plugins" Version="2.0.0" />
-    <PackageReference Include="Norgerman.Cryptography.Scrypt" Version="2.5.0" />
+    <PackageReference Include="McMaster.NETCore.Plugins" />
+    <PackageReference Include="Norgerman.Cryptography.Scrypt" />
   </ItemGroup>
 </Project>

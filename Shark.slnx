@@ -3,6 +3,7 @@
     <File Path=".gitignore" />
     <File Path="config.yml" />
     <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
     <File Path="LICENSE" />
     <File Path="privoxy-config.txt" />
     <File Path="README.md" />
