@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Shark.Data
@@ -19,7 +20,7 @@ namespace Shark.Data
         public string Address { set; get; }
         public ushort Port { set; get; }
 
-        public static unsafe SocksRemote Parse(ReadOnlyMemory<byte> buffer, out ReadOnlyMemory<byte> left)
+        public static SocksRemote Parse(ReadOnlyMemory<byte> buffer, out ReadOnlyMemory<byte> left)
         {
 
             var result = new SocksRemote
@@ -27,13 +28,15 @@ namespace Shark.Data
                 AddressType = buffer.Span[0]
             };
             result.Address = DecodeAddress(buffer[1..], result.AddressType, out var other);
-            using (var pin = other.Pin())
+
+            ushort port = 0;
             {
-                byte* ptr = (byte*)pin.Pointer;
-                (ptr[1], ptr[0]) = (ptr[0], ptr[1]);
-                result.Port = *(ushort*)ptr;
-                (ptr[1], ptr[0]) = (ptr[0], ptr[1]);
+                Span<byte> span = MemoryMarshal.Cast<ushort, byte>(new Span<ushort>(ref port));
+                var mp = other.Span;
+                (span[0], span[1]) = (mp[1], mp[0]);
             }
+            result.Port = port;
+
             left = other[2..];
             return result;
         }
@@ -136,7 +139,7 @@ namespace Shark.Data
             return addressBytes;
         }
 
-        public static unsafe string DecodeAddress(ReadOnlyMemory<byte> buffer, byte addressType, out ReadOnlyMemory<byte> left)
+        public static string DecodeAddress(ReadOnlyMemory<byte> buffer, byte addressType, out ReadOnlyMemory<byte> left)
         {
             string result = null;
             switch (addressType)
