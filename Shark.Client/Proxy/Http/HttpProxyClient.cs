@@ -90,7 +90,7 @@ namespace Shark.Client.Proxy.Http
 
                 _pipe.Reader.Complete();
 
-                Logger.LogWarning($"Connect to {_request.HostData} failed, {Id}");
+                Logger.LogWarning("Connect to {Host} failed, {Id}", _request.HostData, Id);
 
                 CompleteConnection(false);
 

@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Shark.Net;
-using Shark.Utils;
 using System;
 using System.Net;
 using System.Net.Sockets;
@@ -24,15 +23,16 @@ namespace Shark.Server.Net.Internal
         public IServiceProvider ServiceProvider { get; }
 
         public DefaultSocketClient(
+            int id,
             TcpClient tcp,
-            int? id,
-            CancellationToken lifetimeToken,
             IServiceProvider serviceProvider,
-            ILogger<DefaultSocketClient> logger)
+            ILogger<DefaultSocketClient> logger,
+            CancellationToken lifetimeToken
+            )
         {
             _tcp = tcp;
             _stream = _tcp.GetStream();
-            Id = id ?? RandomIdGenerator.NewId();
+            Id = id;
             Logger = logger;
             ServiceProvider = serviceProvider;
             _lifetimeCancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetimeToken);
@@ -76,12 +76,12 @@ namespace Shark.Server.Net.Internal
         }
 
         public static async Task<ISocketClient> ConnectTo(
+            int id,
             IServiceProvider serviceProvider,
             IPEndPoint endPoint,
-            int? id,
+            TimeSpan timeout,
             CancellationToken connectToken,
-            CancellationToken lifetimeToken,
-            TimeSpan timeout)
+            CancellationToken lifetimeToken)
         {
             var tcp = new TcpClient(AddressFamily.InterNetworkV6);
             tcp.Client.DualMode = true;
@@ -107,8 +107,8 @@ namespace Shark.Server.Net.Internal
 
             return ActivatorUtilities.CreateInstance<DefaultSocketClient>(
                 serviceProvider,
-                tcp,
                 id,
+                tcp,
                 lifetimeToken);
         }
 

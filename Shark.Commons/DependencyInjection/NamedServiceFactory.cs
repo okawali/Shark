@@ -19,10 +19,7 @@ namespace Shark.DependencyInjection
 
         public TService GetService(string name)
         {
-            if (name == null)
-            {
-                name = _fallback;
-            }
+            name ??= _fallback;
 
             if (!_registrations.TryGetValue(name, out var type))
             {

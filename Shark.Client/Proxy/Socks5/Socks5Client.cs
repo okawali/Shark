@@ -18,9 +18,9 @@ namespace Shark.Client.Proxy.Socks5
 {
     internal class Socks5Client : ProxyClient
     {
-        private TcpClient _client;
-        private NetworkStream _stream;
-        private Pipe _pipe;
+        private readonly TcpClient _client;
+        private readonly NetworkStream _stream;
+        private readonly Pipe _pipe;
         private Socks5Request _request;
         private bool _socksFailed;
         private UdpClient _udp;

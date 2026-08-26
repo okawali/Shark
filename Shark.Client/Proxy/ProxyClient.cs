@@ -9,30 +9,21 @@ using System.Threading.Tasks;
 
 namespace Shark.Client.Proxy
 {
-    public abstract class ProxyClient : IProxyClient
+    public abstract class ProxyClient(IProxyServer server, ISharkClient shark) : IProxyClient
     {
-        private readonly TaskCompletionSource<bool> _connectionCompletion;
+        private readonly TaskCompletionSource<bool> _connectionCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public int Id { get; private set; }
-        public bool Disposed { get; private set; }
-        public IProxyServer Server { get; private set; }
+        public int Id { get; private set; } = RandomIdGenerator.NewId();
+        public bool Disposed { get; private set; } = false;
+        public IProxyServer Server { get; private set; } = server;
         public abstract ILogger Logger { get; }
 
-        public ISharkClient Shark { private set; get; }
+        public ISharkClient Shark { private set; get; } = shark;
         public abstract IServiceProvider ServiceProvider { get; }
 
         public abstract event Action<ISocketClient> RemoteDisconnected;
         public abstract Task<bool> ProcessSharkData(BlockData block);
         public abstract Task<HostData> StartAndProcessRequest();
-
-        public ProxyClient(IProxyServer server, ISharkClient shark)
-        {
-            Disposed = false;
-            Id = RandomIdGenerator.NewId();
-            Server = server;
-            Shark = shark;
-            _connectionCompletion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        }
 
 
         public abstract ValueTask<int> ReadAsync(Memory<byte> buffer);

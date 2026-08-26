@@ -123,7 +123,7 @@ namespace Shark.Client.Proxy
                             throw new SharkException("Failed to track the shark client service scope");
                         }
 
-                        await sharkClient.ConnectTo(Remote.Address, Remote.Port)
+                        await sharkClient.ConnectTo(0, Remote.Address, Remote.Port)
                             .WaitAsync(waitCancellation.Token);
                         return sharkClient;
                     }

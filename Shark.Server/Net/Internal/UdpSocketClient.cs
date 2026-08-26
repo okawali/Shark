@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using Shark.Constants;
 using Shark.Data;
 using Shark.Net;
-using Shark.Utils;
 using System;
 using System.Collections.Concurrent;
 using System.Net;
@@ -13,36 +12,29 @@ using System.Threading.Tasks;
 
 namespace Shark.Server.Net.Internal
 {
-    internal class UdpSocketClient : ISocketClient
+    internal class UdpSocketClient(
+        int id,
+        UdpClient udp,
+        IServiceProvider serviceProvider,
+        ILogger<UdpSocketClient> logger,
+        CancellationToken lifetimeToken
+        ) : ISocketClient
     {
         private readonly ConcurrentDictionary<IPEndPoint, SocksRemote> _endPointMap = new();
         private readonly ConcurrentDictionary<SocksRemote, IPEndPoint> _addressMap = new();
-        private readonly CancellationTokenSource _lifetimeCancellation;
+        private readonly CancellationTokenSource _lifetimeCancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetimeToken);
         private readonly Lock _syncRoot = new();
-        private readonly UdpClient _udp;
+        private readonly UdpClient _udp = udp;
         private SocksRemote _lastRemote;
 
         public bool Disposed { get; private set; }
-        public int Id { get; }
-        public ILogger Logger { get; }
-        public IServiceProvider ServiceProvider { get; }
+        public int Id { get; } = id;
+        public ILogger Logger { get; } = logger;
+        public IServiceProvider ServiceProvider { get; } = serviceProvider;
 #pragma warning disable CS0067
         public event Action<ISocketClient> RemoteDisconnected;
-#pragma warning restore CS0067
 
-        public UdpSocketClient(
-            UdpClient udp,
-            int? id,
-            CancellationToken lifetimeToken,
-            IServiceProvider serviceProvider,
-            ILogger<UdpSocketClient> logger)
-        {
-            _udp = udp;
-            Id = id ?? RandomIdGenerator.NewId();
-            Logger = logger;
-            ServiceProvider = serviceProvider;
-            _lifetimeCancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetimeToken);
-        }
+#pragma warning restore CS0067
 
         public Task FlushAsync()
         {
@@ -94,8 +86,7 @@ namespace Shark.Server.Net.Internal
             var packData = UdpPackData.Parse(buffer);
             if (!_addressMap.TryGetValue(packData.Remote, out var endPoint))
             {
-                IPAddress address = null;
-                if (!IPAddress.TryParse(packData.Remote.Address, out address))
+                if (!IPAddress.TryParse(packData.Remote.Address, out var address))
                 {
                     using var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCancellation.Token);
                     operationCancellation.CancelAfter(SharkDefaults.MaxWaitTime);
@@ -160,16 +151,16 @@ namespace Shark.Server.Net.Internal
         #endregion
 
         public static Task<ISocketClient> ConnectTo(
+            int id,
             IServiceProvider serviceProvider,
             IPEndPoint endPoint,
-            int? id,
             CancellationToken lifetimeToken)
         {
             var udp = new UdpClient(0, AddressFamily.InterNetwork);
             var socketClient = ActivatorUtilities.CreateInstance<UdpSocketClient>(
                 serviceProvider,
-                udp,
                 id,
+                udp,
                 lifetimeToken);
             return Task.FromResult<ISocketClient>(socketClient);
         }

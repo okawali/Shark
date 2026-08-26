@@ -11,23 +11,16 @@ using System.Threading.Tasks;
 
 namespace Shark.Server.Net.Internal
 {
-    internal class DefaultSharkServer : SharkServer
+    internal class DefaultSharkServer(
+        IServiceProvider serviceProvider,
+        ILogger<DefaultSharkServer> logger,
+        IOptions<BindingOptions> bindingOptions) : SharkServer
     {
-        private readonly IOptions<BindingOptions> _bindingOptions;
+        private readonly IOptions<BindingOptions> _bindingOptions = bindingOptions;
         private TcpListener _listener;
 
-        public override ILogger Logger { get; }
-        public override IServiceProvider ServiceProvider { get; }
-
-        public DefaultSharkServer(
-            IServiceProvider serviceProvider,
-            ILogger<DefaultSharkServer> logger,
-            IOptions<BindingOptions> bindingOptions)
-        {
-            Logger = logger;
-            ServiceProvider = serviceProvider;
-            _bindingOptions = bindingOptions;
-        }
+        public override ILogger Logger { get; } = logger;
+        public override IServiceProvider ServiceProvider { get; } = serviceProvider;
 
         private void Bind(IPEndPoint endPoint)
         {

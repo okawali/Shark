@@ -23,8 +23,8 @@ namespace Shark.Client
     public class SharkClient : ISharkClient
     {
         private readonly TimeSpan _maxWaitTime;
-        private TcpClient _tcp;
-        private SemaphoreSlim _writeSemaphore;
+        private readonly TcpClient _tcp;
+        private readonly SemaphoreSlim _writeSemaphore;
         private NetworkStream _stream;
         public IDictionary<int, ISocketClient> RemoteClients { private set; get; }
         public ConcurrentQueue<int> DisconnectQueue { get; private set; }
@@ -357,7 +357,7 @@ namespace Shark.Client
         {
             if (length == 0)
             {
-                return Array.Empty<byte>();
+                return [];
             }
 
             var data = new byte[length];
@@ -605,19 +605,19 @@ namespace Shark.Client
         }
         #endregion
 
-        public async Task<ISocketClient> ConnectTo(IPAddress address, int port, RemoteType type = RemoteType.Tcp, int? id = null)
+        public async Task<ISocketClient> ConnectTo(int _, IPAddress address, int port, RemoteType type = RemoteType.Tcp)
         {
             return await CompleteConnect(_tcp.ConnectAsync(address, port, _lifetimeCancellation.Token));
         }
 
-        public async Task<ISocketClient> ConnectTo(string address, int port, RemoteType type = RemoteType.Tcp, int? id = null)
+        public async Task<ISocketClient> ConnectTo(int _, string address, int port, RemoteType type = RemoteType.Tcp)
         {
             return await CompleteConnect(_tcp.ConnectAsync(address, port, _lifetimeCancellation.Token));
         }
 
-        public Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, int? id = null)
+        public Task<ISocketClient> ConnectTo(int _, IPEndPoint endPoint, RemoteType type = RemoteType.Tcp)
         {
-            return ConnectTo(endPoint.Address, endPoint.Port, type, id);
+            return ConnectTo(_, endPoint.Address, endPoint.Port, type);
         }
 
         private async Task<ISocketClient> CompleteConnect(ValueTask connectTask)

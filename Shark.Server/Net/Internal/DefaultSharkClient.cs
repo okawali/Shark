@@ -28,9 +28,10 @@ namespace Shark.Server.Net.Internal
         public DefaultSharkClient(
             TcpClient tcp,
             SharkServer server,
-            CancellationToken lifetimeToken,
             IServiceProvider serviceProvider,
-            ILogger<DefaultSharkClient> logger)
+            ILogger<DefaultSharkClient> logger,
+            CancellationToken lifetimeToken
+            )
             : base(server, lifetimeToken)
         {
             _tcp = tcp;
@@ -43,20 +44,20 @@ namespace Shark.Server.Net.Internal
         }
 
         protected override async Task<ISocketClient> ConnectToCore(
+            int id,
             IPEndPoint endPoint,
             RemoteType type,
-            int? id,
             CancellationToken token)
         {
             ISocketClient socket = type == RemoteType.Tcp
                 ? await DefaultSocketClient.ConnectTo(
+                    id,
                     ServiceProvider,
                     endPoint,
-                    id,
+                    SharkClient.OperationTimeout,
                     token,
-                    LifetimeToken,
-                    OperationTimeout)
-                : await UdpSocketClient.ConnectTo(ServiceProvider, endPoint, id, LifetimeToken);
+                    LifetimeToken)
+                : await UdpSocketClient.ConnectTo(id, ServiceProvider, endPoint, LifetimeToken);
 
             if (!TryAddRemoteClient(socket))
             {

@@ -47,9 +47,7 @@ namespace Shark.Data
             fixed (byte* ptr = result)
             {
                 *(ushort*)(ptr + result.Length - 2) = Port;
-                var tmp = result[^1];
-                result[^1] = result[^2];
-                result[^2] = tmp;
+                (result[^2], result[^1]) = (result[^1], result[^2]);
             }
             return result;
         }
@@ -119,7 +117,7 @@ namespace Shark.Data
 
         public static byte[] EncodeAddress(string address, byte addressType)
         {
-            byte[] addressBytes = Array.Empty<byte>();
+            byte[] addressBytes = [];
             switch (addressType)
             {
                 case SocksRemoteType.DOMAIN:

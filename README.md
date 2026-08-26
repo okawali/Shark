@@ -1,5 +1,4 @@
 [![LICENSE](https://img.shields.io/github/license/mashape/apistatus.svg)](./LICENSE)
-[![LICENSE](https://img.shields.io/badge/license-Anti%20996-blue.svg)](https://github.com/996icu/996.ICU/blob/master/LICENSE)
 [![Build Status](https://github.com/okawali/shark/workflows/Build/badge.svg)](https://github.com/okawali/Shark/actions)
 
 # Shark

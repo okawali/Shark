@@ -121,7 +121,7 @@ namespace Shark.Server
                 }
                 var host = JsonSerializer.Deserialize<HostData>(Encoding.UTF8.GetString(block.Data.Span))
                     ?? throw new SharkException("Remote host data is invalid");
-                remote = await client.ConnectTo(host.Address, host.Port, host.Type, block.Id);
+                remote = await client.ConnectTo(block.Id, host.Address, host.Port, host.Type);
                 if (client.Logger.IsEnabled(LogLevel.Information))
                 {
                     client.Logger.LogInformation("Connected {Id}", block.Id);

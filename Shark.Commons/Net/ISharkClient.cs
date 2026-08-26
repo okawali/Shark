@@ -16,9 +16,9 @@ namespace Shark.Net
 
         int ChangeId(int id);
 
-        Task<ISocketClient> ConnectTo(IPAddress address, int port, RemoteType type = RemoteType.Tcp, int? id = null);
-        Task<ISocketClient> ConnectTo(string address, int port, RemoteType type = RemoteType.Tcp, int? id = null);
-        Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, int? id = null);
+        Task<ISocketClient> ConnectTo(int id, IPAddress address, int port, RemoteType type = RemoteType.Tcp);
+        Task<ISocketClient> ConnectTo(int id, string address, int port, RemoteType type = RemoteType.Tcp);
+        Task<ISocketClient> ConnectTo(int id, IPEndPoint endPoint, RemoteType type = RemoteType.Tcp);
 
         ISymmetricCipher Cipher { get; }
         ConcurrentQueue<int> DisconnectQueue { get; }

@@ -18,8 +18,8 @@ namespace Shark.Client.Proxy.Socks5
                 Version = buffer[0],
                 Command = buffer[1],
                 RSV = buffer[2],
+                Remote = SocksRemote.Parse(new Memory<byte>(buffer, 3, buffer.Length - 3), out var _)
             };
-            request.Remote = SocksRemote.Parse(new Memory<byte>(buffer, 3, buffer.Length - 3), out var left);
             return request;
         }
     }

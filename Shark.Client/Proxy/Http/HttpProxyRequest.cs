@@ -18,7 +18,7 @@ namespace Shark.Client.Proxy.Http
         public HostData HostData { private set; get; }
         public IReadOnlyDictionary<string, string> Headers => _headers;
         public bool IsConnect => Method == HttpProxy.METHOD;
-        private Dictionary<string, string> _headers;
+        private readonly Dictionary<string, string> _headers;
         private string _path;
 
         public HttpProxyRequest()

@@ -47,7 +47,7 @@ namespace Shark.Server.Net
         protected abstract IAuthenticator Authenticator { get; }
         protected object CipherSyncRoot => _cipherSync;
         protected CancellationToken LifetimeToken => _lifetimeCancellation.Token;
-        protected TimeSpan OperationTimeout => SharkDefaults.MaxWaitTime;
+        protected static TimeSpan OperationTimeout => SharkDefaults.MaxWaitTime;
 
         public abstract event Action<ISocketClient> RemoteDisconnected;
 
@@ -71,16 +71,16 @@ namespace Shark.Server.Net
                 var readTask = ReadInternal();
                 if (!Initialized)
                 {
-                    return await readTask.WaitAsync(OperationTimeout, LifetimeToken);
+                    return await readTask.WaitAsync(SharkClient.OperationTimeout, LifetimeToken);
                 }
 
                 return await readTask.WaitAsync(LifetimeToken);
             }
             catch (TimeoutException ex)
             {
-                Logger.LogWarning("Shark authentication timed out after {Timeout} for {Id}", OperationTimeout, Id);
+                Logger.LogWarning("Shark authentication timed out after {Timeout} for {Id}", SharkClient.OperationTimeout, Id);
                 AbortConnection();
-                throw new SharkException($"Shark authentication timed out after {OperationTimeout}", ex);
+                throw new SharkException($"Shark authentication timed out after {SharkClient.OperationTimeout}", ex);
             }
             catch (OperationCanceledException ex) when (_lifetimeCancellation.IsCancellationRequested)
             {
@@ -112,13 +112,13 @@ namespace Shark.Server.Net
         {
             try
             {
-                await WriteInternal(block).WaitAsync(OperationTimeout, LifetimeToken);
+                await WriteInternal(block).WaitAsync(SharkClient.OperationTimeout, LifetimeToken);
             }
             catch (TimeoutException ex)
             {
-                Logger.LogWarning("Shark write timed out after {Timeout} for {Id}", OperationTimeout, Id);
+                Logger.LogWarning("Shark write timed out after {Timeout} for {Id}", SharkClient.OperationTimeout, Id);
                 AbortConnection();
-                throw new SharkException($"Shark write timed out after {OperationTimeout}", ex);
+                throw new SharkException($"Shark write timed out after {SharkClient.OperationTimeout}", ex);
             }
             catch (OperationCanceledException ex) when (_lifetimeCancellation.IsCancellationRequested)
             {
@@ -216,7 +216,7 @@ namespace Shark.Server.Net
         {
             if (length == 0)
             {
-                return Array.Empty<byte>();
+                return [];
             }
             if (length < 0 || length > SharkDefaults.MaximumBlockLength)
             {
@@ -291,32 +291,32 @@ namespace Shark.Server.Net
         }
 
         public virtual Task<ISocketClient> ConnectTo(
+            int id,
             IPAddress address,
             int port,
-            RemoteType type = RemoteType.Tcp,
-            int? id = null)
+            RemoteType type = RemoteType.Tcp)
         {
-            return ConnectToCore(new IPEndPoint(address, port), type, id, LifetimeToken);
+            return ConnectToCore(id, new IPEndPoint(address, port), type, LifetimeToken);
         }
 
         public virtual async Task<ISocketClient> ConnectTo(
+            int id,
             string address,
             int port,
-            RemoteType type = RemoteType.Tcp,
-            int? id = null)
+            RemoteType type = RemoteType.Tcp)
         {
             using var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(LifetimeToken);
-            operationCancellation.CancelAfter(OperationTimeout);
+            operationCancellation.CancelAfter(SharkClient.OperationTimeout);
             var token = operationCancellation.Token;
 
             if (type == RemoteType.Udp)
             {
-                return await ConnectToCore(new IPEndPoint(IPAddress.Any, 0), type, id, token);
+                return await ConnectToCore(id, new IPEndPoint(IPAddress.Any, 0), type, token);
             }
 
             if (IPAddress.TryParse(address, out var ip))
             {
-                return await ConnectToCore(new IPEndPoint(ip, port), type, id, token);
+                return await ConnectToCore(id, new IPEndPoint(ip, port), type, token);
             }
 
             var addressList = await Dns.GetHostAddressesAsync(address, token);
@@ -325,7 +325,7 @@ namespace Shark.Server.Net
             {
                 try
                 {
-                    return await ConnectToCore(new IPEndPoint(resolvedAddress, port), type, id, token);
+                    return await ConnectToCore(id, new IPEndPoint(resolvedAddress, port), type, token);
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
                 {
@@ -342,17 +342,17 @@ namespace Shark.Server.Net
         }
 
         public Task<ISocketClient> ConnectTo(
+            int id,
             IPEndPoint endPoint,
-            RemoteType type = RemoteType.Tcp,
-            int? id = null)
+            RemoteType type = RemoteType.Tcp)
         {
-            return ConnectToCore(endPoint, type, id, LifetimeToken);
+            return ConnectToCore(id, endPoint, type, LifetimeToken);
         }
 
         protected abstract Task<ISocketClient> ConnectToCore(
+            int id,
             IPEndPoint endPoint,
             RemoteType type,
-            int? id,
             CancellationToken token);
 
         public void RemoveRemoteClient(int id)
@@ -438,7 +438,7 @@ namespace Shark.Server.Net
 
             Logger.LogWarning(
                 "Shark authentication did not complete within {Timeout} for {Id}",
-                OperationTimeout,
+                SharkClient.OperationTimeout,
                 Id);
             AbortConnection();
         }
@@ -502,7 +502,7 @@ namespace Shark.Server.Net
 
                 try
                 {
-                    await Task.WhenAll(activeOperations).WaitAsync(OperationTimeout);
+                    await Task.WhenAll(activeOperations).WaitAsync(SharkClient.OperationTimeout);
                 }
                 catch (TimeoutException)
                 {

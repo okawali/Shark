@@ -18,21 +18,15 @@ namespace Shark.Client.Proxy.Http
         }
     }
 
-    public struct HttpProxyStatus
+    public struct HttpProxyStatus(int code, string message)
     {
         public static readonly HttpProxyStatus CONNECTION_ESTABLISHED = new(200, "Connection Established");
         public static readonly HttpProxyStatus UNAUTHORIZED = new(407, "Unauthorized");
         public static readonly HttpProxyStatus BAD_GATEWAY = new(502, "Bad Gateway");
         public static readonly HttpProxyStatus NOT_IMPLEMENTED = new(501, "Not Implemented");
 
-        public int Code { set; get; }
-        public string Message { get; set; }
-
-        public HttpProxyStatus(int code, string message)
-        {
-            Code = code;
-            Message = message;
-        }
+        public int Code { set; get; } = code;
+        public string Message { get; set; } = message;
 
         public override readonly string ToString() => $"{Code} {Message}";
     }

@@ -7,14 +7,9 @@ using System.Threading.Tasks;
 
 namespace Shark.Client
 {
-    class Worker : BackgroundService
+    class Worker(IServiceProvider services) : BackgroundService
     {
-        private readonly IServiceProvider _services;
-
-        public Worker(IServiceProvider services)
-        {
-            _services = services;
-        }
+        private readonly IServiceProvider _services = services;
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {

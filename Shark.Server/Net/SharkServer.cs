@@ -126,10 +126,7 @@ namespace Shark.Server.Net
 
             lock (_clientIdentitySync)
             {
-                if (Disposed)
-                {
-                    throw new ObjectDisposedException(nameof(SharkServer));
-                }
+                ObjectDisposedException.ThrowIf(Disposed, this);
 
                 if (!_clients.TryAdd(client.Id, client))
                 {
