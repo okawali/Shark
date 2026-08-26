@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Shark.Constants;
@@ -19,15 +20,22 @@ namespace Shark.Client.Proxy
 {
     public abstract class ProxyServer : IProxyServer
     {
-        private readonly Random _random;
+        private readonly ConcurrentDictionary<int, IProxyClient> _clients;
+        private readonly ConcurrentDictionary<int, ISharkClient> _sharks;
+        private readonly ConcurrentDictionary<ISharkClient, IServiceScope> _sharkScopes;
+        private readonly CancellationTokenSource _lifetimeCancellation;
+        private TaskCompletionSource<bool> _poolChanged;
+        private readonly Lock _poolSync;
+        private int _disposeState;
 
-        protected int _waitingCount = 0;
+        protected int _waitingCount;
+        protected TimeSpan OperationTimeout { get; }
 
-        public bool Disposed { get; private set; }
+        public bool Disposed => Volatile.Read(ref _disposeState) != 0;
         public abstract ILogger Logger { get; }
 
-        public IDictionary<int, IProxyClient> Clients { get; private set; }
-        public IDictionary<int, ISharkClient> Sharks { get; private set; }
+        public IDictionary<int, IProxyClient> Clients => _clients;
+        public IDictionary<int, ISharkClient> Sharks => _sharks;
         public int MaxCount => ProxyOptions.Value.MaxClientCount;
         public IOptions<ProxyRemoteOptions> ProxyOptions { get; }
         public HostData Remote => ProxyOptions.Value.Remote;
@@ -35,68 +43,251 @@ namespace Shark.Client.Proxy
 
         public ProxyServer(IServiceProvider serviceProvider, IOptions<ProxyRemoteOptions> options)
         {
-            Disposed = false;
             ProxyOptions = options;
-
-            Sharks = new ConcurrentDictionary<int, ISharkClient>();
-            Clients = new ConcurrentDictionary<int, IProxyClient>();
-
-            _random = new Random();
             ServiceProvider = serviceProvider;
+
+            _clients = new ConcurrentDictionary<int, IProxyClient>();
+            _sharks = new ConcurrentDictionary<int, ISharkClient>();
+            _sharkScopes = new ConcurrentDictionary<ISharkClient, IServiceScope>();
+            _lifetimeCancellation = new CancellationTokenSource();
+            _poolChanged = CreatePoolSignal();
+            _poolSync = new Lock();
+
+            var configuration = serviceProvider.GetService<IConfiguration>();
+            if (!int.TryParse(configuration?["client:maxWaitTime"], out var seconds) || seconds <= 0)
+            {
+                seconds = (int)SharkDefaults.MaxWaitTime.TotalSeconds;
+            }
+            OperationTimeout = TimeSpan.FromSeconds(seconds);
         }
 
         public virtual void RemoveClient(IProxyClient client)
         {
-            Clients.Remove(client.Id);
-            client.Shark.RemoveRemoteClient(client.Id);
+            if (client == null)
+            {
+                return;
+            }
+
+            _clients.TryRemove(client.Id, out _);
+            client.Shark?.RemoveRemoteClient(client.Id);
         }
 
-        public async Task<ISharkClient> GetOrCreateSharkClient()
+        public Task<ISharkClient> GetOrCreateSharkClient()
         {
-            if (MaxCount == 0 || (Sharks.Count + _waitingCount) < MaxCount)
+            return GetOrCreateSharkClient(CancellationToken.None);
+        }
+
+        protected async Task<ISharkClient> GetOrCreateSharkClient(CancellationToken token)
+        {
+            using var waitCancellation = CancellationTokenSource.CreateLinkedTokenSource(token, _lifetimeCancellation.Token);
+            waitCancellation.CancelAfter(OperationTimeout);
+
+            while (true)
             {
-                Logger.LogDebug("Creating new shark connection");
-                Interlocked.Increment(ref _waitingCount);
+                waitCancellation.Token.ThrowIfCancellationRequested();
+
+                ISharkClient[] available;
+                var create = false;
+                Task poolChangedTask;
+
+                lock (_poolSync)
+                {
+                    available = [.. _sharks.Values.Where(shark => shark.Initialized && shark.CanRead && !shark.Disposed)];
+
+                    if (available.Length == 0 &&
+                        (MaxCount == 0 || (_sharks.Count + _waitingCount) < MaxCount))
+                    {
+                        _waitingCount++;
+                        create = true;
+                    }
+
+                    poolChangedTask = _poolChanged.Task;
+                }
+
+                if (available.Length > 0)
+                {
+                    return available[Random.Shared.Next(available.Length)];
+                }
+
+                if (create)
+                {
+                    IServiceScope scope = null;
+                    ISharkClient sharkClient = null;
+                    try
+                    {
+                        Logger.LogDebug("Creating new shark connection");
+                        scope = ServiceProvider.CreateScope();
+                        sharkClient = scope.ServiceProvider.GetRequiredService<ISharkClient>();
+                        if (!_sharkScopes.TryAdd(sharkClient, scope))
+                        {
+                            throw new SharkException("Failed to track the shark client service scope");
+                        }
+
+                        await sharkClient.ConnectTo(Remote.Address, Remote.Port)
+                            .WaitAsync(waitCancellation.Token);
+                        return sharkClient;
+                    }
+                    catch (Exception ex)
+                    {
+                        ReleasePendingShark();
+                        if (sharkClient != null)
+                        {
+                            DisposeShark(sharkClient);
+                        }
+                        else
+                        {
+                            scope?.Dispose();
+                        }
+
+                        if (ex is OperationCanceledException &&
+                            !token.IsCancellationRequested &&
+                            !_lifetimeCancellation.IsCancellationRequested)
+                        {
+                            throw new SharkException($"Timed out connecting to remote shark server {Remote}", ex);
+                        }
+
+                        Logger.LogWarning(ex, "Connect to remote shark server {Remote} failed", Remote);
+                        throw;
+                    }
+                }
+
                 try
                 {
-                    var sharkClient = ServiceProvider.CreateScope().ServiceProvider.GetService<ISharkClient>();
-                    await sharkClient.ConnectTo(Remote.Address, Remote.Port);
-                    return sharkClient;
+                    await poolChangedTask.WaitAsync(waitCancellation.Token);
                 }
-                catch (Exception)
+                catch (OperationCanceledException ex) when (
+                    !token.IsCancellationRequested &&
+                    !_lifetimeCancellation.IsCancellationRequested)
                 {
-                    Logger.LogWarning($"Connect to Remote shark server {Remote} failed");
-                    Interlocked.Decrement(ref _waitingCount);
-                    throw;
+                    throw new SharkException($"Timed out waiting for an available shark connection to {Remote}", ex);
+                }
+            }
+        }
+
+        protected bool PublishShark(ISharkClient shark)
+        {
+            var added = false;
+            lock (_poolSync)
+            {
+                if (_waitingCount > 0)
+                {
+                    _waitingCount--;
+                }
+
+                if (!Disposed && shark != null && shark.Initialized && shark.CanRead && !shark.Disposed)
+                {
+                    added = _sharks.TryAdd(shark.Id, shark);
                 }
             }
 
-            if (Sharks.Count == 0)
+            SignalPoolChanged();
+
+            if (!added)
             {
-                SpinWait.SpinUntil(() => Sharks.Count > 0 || _waitingCount == 0);
+                RetireShark(shark);
             }
 
-            if (Sharks.Count == 0)
-            {
-                // just throw an cannot connect error
-                Logger.LogWarning($"Connect to Remote shark server {Remote} failed");
+            return added;
+        }
 
-                throw new SharkException("Connect to Remote shark server {Remote} failed");
+        protected void AbandonPendingShark(ISharkClient shark)
+        {
+            ReleasePendingShark();
+            RetireShark(shark);
+        }
+
+        protected void RetireShark(ISharkClient shark)
+        {
+            if (shark == null)
+            {
+                return;
             }
 
-            return Sharks.Values.ElementAt(_random.Next(Sharks.Count));
+            lock (_poolSync)
+            {
+                if (_sharks.TryGetValue(shark.Id, out var current) && ReferenceEquals(current, shark))
+                {
+                    _sharks.TryRemove(shark.Id, out _);
+                }
+            }
+
+            var remoteClients = shark.RemoteClients?.Values.OfType<IProxyClient>().ToArray()
+                ?? [];
+
+            foreach (var remote in remoteClients)
+            {
+                _clients.TryRemove(remote.Id, out _);
+                try
+                {
+                    remote.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Failed to dispose proxy client {Id}", remote.Id);
+                }
+            }
+
+            DisposeShark(shark);
+            SignalPoolChanged();
+        }
+
+        private void ReleasePendingShark()
+        {
+            lock (_poolSync)
+            {
+                if (_waitingCount > 0)
+                {
+                    _waitingCount--;
+                }
+            }
+            SignalPoolChanged();
+        }
+
+        private void DisposeShark(ISharkClient shark)
+        {
+            try
+            {
+                if (_sharkScopes.TryRemove(shark, out var scope))
+                {
+                    scope.Dispose();
+                }
+                else
+                {
+                    shark.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to dispose shark client {Id}", shark.Id);
+            }
+        }
+
+        private void SignalPoolChanged()
+        {
+            TaskCompletionSource<bool> signal;
+            lock (_poolSync)
+            {
+                signal = _poolChanged;
+                _poolChanged = CreatePoolSignal();
+            }
+            signal.TrySetResult(true);
+        }
+
+        private static TaskCompletionSource<bool> CreatePoolSignal()
+        {
+            return new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
         public abstract Task Start(CancellationToken token);
 
         protected Task StartSharkLoop(ISharkClient shark)
         {
-            return Task.Factory.StartNew(async () =>
+            return Task.Run(async () =>
             {
                 var taskMap = new Dictionary<int, Task<bool>>();
                 try
                 {
-                    while (true)
+                    while (shark.CanRead)
                     {
                         var block = await shark.ReadBlock();
                         shark.DecryptBlock(ref block);
@@ -104,55 +295,50 @@ namespace Shark.Client.Proxy
                         {
                             var idData = Encoding.UTF8.GetString(block.Data.Span);
                             var ids = JsonSerializer.Deserialize<List<int>>(idData);
-                            Logger.LogDebug("Remote request disconnect {0}", idData);
+                            if (Logger.IsEnabled(LogLevel.Debug))
+                            {
+                                Logger.LogDebug("Remote request disconnect {Ids}", idData);
+                            }
                             foreach (var id in ids)
                             {
-                                Clients.TryGetValue(id, out var item);
-
                                 shark.RemoteClients.Remove(id);
+                                taskMap.Remove(id);
 
-                                if (Clients.Remove(id))
+                                if (_clients.TryRemove(id, out var item))
                                 {
                                     item.Dispose();
-                                    item.Logger.LogDebug("Disconnected {0}", id);
+                                    if (item.Logger.IsEnabled(LogLevel.Debug))
+                                    {
+                                        item.Logger.LogDebug("Disconnected {Id}", id);
+                                    }
                                 }
                                 else
                                 {
-                                    Logger.LogDebug("Remote request disconnect failed {0}", id);
+                                    if (Logger.IsEnabled(LogLevel.Debug))
+                                    {
+                                        Logger.LogDebug("Remote request disconnect failed {Id}", id);
+                                    }
                                 }
                             }
                             continue;
                         }
 
-                        if (Clients.TryGetValue(block.Id, out var client))
+                        if (_clients.TryGetValue(block.Id, out var client))
                         {
-                            if (taskMap.TryGetValue(block.Id, out var t))
+                            Task<bool> task;
+                            if (taskMap.TryGetValue(block.Id, out var previous))
                             {
-                                t = t.ContinueWith(task =>
-                                {
-                                    if (!task.IsCompletedSuccessfully || !task.Result)
-                                    {
-                                        if (!client.Disposed)
-                                        {
-                                            RemoveClient(client);
-                                            client.Dispose();
-                                            taskMap.Remove(block.Id);
-                                        }
-                                        return Task.FromResult(false);
-                                    }
-                                    return client.ProcessSharkData(block);
-                                }).Unwrap();
+                                task = ContinueClientProcessing(previous, client, block);
                             }
                             else
                             {
-                                t = client.ProcessSharkData(block);
+                                task = ProcessClientBlock(client, block);
                             }
 
-                            taskMap[block.Id] = t;
+                            taskMap[block.Id] = task;
                         }
                         else
                         {
-                            // handle cases
                             taskMap.Remove(block.Id);
                         }
                     }
@@ -163,52 +349,110 @@ namespace Shark.Client.Proxy
                 }
                 finally
                 {
-                    var clients = shark.RemoteClients;
-
-                    foreach (var clientPair in clients)
-                    {
-                        Clients.Remove(clientPair.Key);
-                        clientPair.Value.Dispose();
-                    }
-
-                    Sharks.Remove(shark.Id);
-                    shark.Dispose();
                     taskMap.Clear();
+                    RetireShark(shark);
                 }
-            }).Unwrap();
+            });
+        }
+
+        private async Task<bool> ContinueClientProcessing(
+            Task<bool> previous,
+            IProxyClient client,
+            BlockData block)
+        {
+            try
+            {
+                if (!await previous)
+                {
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                client.Logger.LogError(ex, "Previous proxy operation failed for {Id}", client.Id);
+                CleanupClient(client);
+                return false;
+            }
+
+            return await ProcessClientBlock(client, block);
+        }
+
+        private async Task<bool> ProcessClientBlock(IProxyClient client, BlockData block)
+        {
+            try
+            {
+                var success = await client.ProcessSharkData(block);
+                if (!success)
+                {
+                    CleanupClient(client);
+                }
+                return success;
+            }
+            catch (Exception ex)
+            {
+                client.Logger.LogError(ex, "Proxy operation failed for {Id}", client.Id);
+                CleanupClient(client);
+                return false;
+            }
+        }
+
+        private void CleanupClient(IProxyClient client)
+        {
+            if (client == null || client.Disposed)
+            {
+                return;
+            }
+
+            RemoveClient(client);
+            client.Dispose();
         }
 
         protected void OnClientRemoteDisconnected(ISocketClient client)
         {
+            var proxyClient = client as IProxyClient;
+            RemoveClient(proxyClient);
             client.Dispose();
-            RemoveClient(client as IProxyClient);
         }
 
         #region IDisposable Support
         protected virtual void Dispose(bool disposing)
         {
-            if (!Disposed)
+            if (Interlocked.Exchange(ref _disposeState, 1) != 0)
             {
-                if (disposing)
-                {
-                    // dispose managed state (managed objects).
-                    foreach (var clientPair in Clients)
-                    {
-                        clientPair.Value.Dispose();
-                    }
-                    Clients.Clear();
+                return;
+            }
 
-                    foreach (var sharkPair in Sharks)
-                    {
-                        sharkPair.Value.Dispose();
-                    }
-                    Sharks.Clear();
+            if (disposing)
+            {
+                _lifetimeCancellation.Cancel();
+                SignalPoolChanged();
+
+                foreach (var clientPair in _clients.ToArray())
+                {
+                    clientPair.Value.Dispose();
+                }
+                _clients.Clear();
+
+                foreach (var sharkPair in _sharks.ToArray())
+                {
+                    RetireShark(sharkPair.Value);
+                }
+                _sharks.Clear();
+
+                foreach (var shark in _sharkScopes.Keys.ToArray())
+                {
+                    DisposeShark(shark);
                 }
 
-                // set large fields to null.
-                Disposed = true;
+                lock (_poolSync)
+                {
+                    _waitingCount = 0;
+                }
+
+                _lifetimeCancellation.Dispose();
             }
         }
+
         public void Dispose()
         {
             Dispose(true);

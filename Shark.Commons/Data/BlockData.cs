@@ -38,11 +38,11 @@ namespace Shark.Data
         // data field
         [FieldOffset(HEADER_SIZE % 8 == 0 ? HEADER_SIZE : (HEADER_SIZE / 8 + 1) * 8)]
         public Memory<byte> Data;
-        public bool IsValid => Type != BlockType.INVALID;
+        public readonly bool IsValid => Type != BlockType.INVALID;
 
-        private bool TryComputeCrc(out uint crc)
+        private readonly bool TryComputeCrc(out uint crc)
         {
-            using (Crc32 crc32 = new Crc32())
+            using (Crc32 crc32 = new())
             {
                 var result = new byte[4];
                 if (crc32.TryComputeHash(Data.Span, result, out var written))
@@ -82,8 +82,16 @@ namespace Shark.Data
             Type = BlockType.INVALID;
         }
 
-        public unsafe ReadOnlySpan<byte> GenerateHeader()
+        public ReadOnlySpan<byte> GenerateHeader()
         {
+            if (Data.Length > SharkDefaults.MaximumBlockLength)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(Data),
+                    Data.Length,
+                    $"Block length exceeds the maximum of {SharkDefaults.MaximumBlockLength} bytes");
+            }
+
             Length = Data.Length;
             TryComputeCrc(out BodyCrc32);
 
@@ -94,9 +102,9 @@ namespace Shark.Data
             }
         }
 
-        public override string ToString() => $"{Id}:{Type}:{BlockNumber}:{Length}";
+        public override readonly string ToString() => $"{Id}:{Type}:{BlockNumber}:{Length}";
 
-        public unsafe static bool TryParseHeader(ReadOnlySpan<byte> headerBuffer, out BlockData result)
+        public static bool TryParseHeader(ReadOnlySpan<byte> headerBuffer, out BlockData result)
         {
             result = new BlockData();
 
@@ -111,7 +119,7 @@ namespace Shark.Data
                 headerBuffer.CopyTo(new Span<byte>(ptr, HEADER_SIZE));
             }
 
-            return true;
+            return result.Length >= 0 && result.Length <= SharkDefaults.MaximumBlockLength;
         }
     }
 }

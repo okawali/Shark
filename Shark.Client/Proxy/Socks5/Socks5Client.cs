@@ -70,11 +70,15 @@ namespace Shark.Client.Proxy.Socks5
 
                     await WriteAsync(data);
                     await FlushAsync();
-                    Logger.LogInformation($"{_target} connected, {Id}");
+                    if (Logger.IsEnabled(LogLevel.Information))
+                    {
+                        Logger.LogInformation("{Target} connected, {Id}", _target, Id);
+                    }
 
 #pragma warning disable CS4014
                     ProcessData();
 #pragma warning restore CS4014
+                    CompleteConnection(true);
                 }
                 else if (_target.Type == RemoteType.Udp)
                 {
@@ -84,7 +88,11 @@ namespace Shark.Client.Proxy.Socks5
 
                     StopTcp();
                     _pipe.Reader.Complete();
-                    Logger.LogInformation($"Udp relay started, {Id}");
+                    if (Logger.IsEnabled(LogLevel.Information))
+                    {
+                        Logger.LogInformation("Udp relay started, {Id}", Id);
+                    }
+                    CompleteConnection(true);
                 }
             }
             else if (block.Type == BlockType.CONNECT_FAILED)
@@ -97,6 +105,8 @@ namespace Shark.Client.Proxy.Socks5
                 _pipe.Reader.Complete();
 
                 Logger.LogWarning($"Connect to {_target} failed, {Id}");
+
+                CompleteConnection(false);
 
                 return false;
             }
@@ -121,7 +131,7 @@ namespace Shark.Client.Proxy.Socks5
 
         public override async Task<HostData> StartAndProcessRequest()
         {
-            ReadFromStream();
+            _ = ReadFromStream();
 
             var header = await ReadAuthHeader();
 
@@ -164,12 +174,18 @@ namespace Shark.Client.Proxy.Socks5
             if (_request.Command == SocksCommand.CONNECT)
             {
                 _target = new HostData() { Address = _request.Remote.Address, Port = _request.Remote.Port };
-                Logger.LogInformation($"Connecting to {_target}, {Id}");
+                if (Logger.IsEnabled(LogLevel.Information))
+                {
+                    Logger.LogInformation("Connecting to {Target}, {Id}", _target, Id);
+                }
                 return _target;
             }
             else if (_request.Command == SocksCommand.UDP)
             {
-                Logger.LogInformation($"Config udp relay, {Id}");
+                if (Logger.IsEnabled(LogLevel.Information))
+                {
+                    Logger.LogInformation("Config udp relay, {Id}", Id);
+                }
                 _target = new HostData()
                 {
                     Address = _request.Remote.Address,
@@ -194,7 +210,13 @@ namespace Shark.Client.Proxy.Socks5
         private void BindUdp(HostData hostData)
         {
             _udp = new UdpClient(0);
-            Logger.LogInformation($"Binded udp on {_udp.Client.LocalEndPoint}, starting udp relay, {Id}");
+            if (Logger.IsEnabled(LogLevel.Information))
+            {
+                Logger.LogInformation(
+                    "Binded udp on {LocalEndPoint}, starting udp relay, {Id}",
+                    _udp.Client.LocalEndPoint,
+                    Id);
+            }
 #pragma warning disable CS4014
             StartUdpRelay();
 #pragma warning restore CS4014
@@ -269,11 +291,14 @@ namespace Shark.Client.Proxy.Socks5
                     Logger.LogWarning("Socket errored before shutdown and disconnect");
                 }
             }
-            Logger.LogInformation("Socks no data to read, closed {0}", Id);
+            if (Logger.IsEnabled(LogLevel.Information))
+            {
+                Logger.LogInformation("Socks no data to read, closed {0}", Id);
+            }
             RemoteDisconnected?.Invoke(this);
         }
 
-        private async void ReadFromStream()
+        private async Task ReadFromStream()
         {
             var writer = _pipe.Writer;
             try
@@ -314,7 +339,7 @@ namespace Shark.Client.Proxy.Socks5
         private Task ProcessData()
         {
             var reader = _pipe.Reader;
-            return Task.Factory.StartNew(async () =>
+            return Task.Run(async () =>
             {
                 try
                 {
@@ -355,12 +380,12 @@ namespace Shark.Client.Proxy.Socks5
                 CloseConnection();
                 reader.Complete();
                 _socksFailed = true;
-            }).Unwrap();
+            });
         }
 
         private Task StartUdpRelay()
         {
-            return Task.Factory.StartNew(async () =>
+            return Task.Run(async () =>
             {
                 try
                 {
@@ -409,7 +434,7 @@ namespace Shark.Client.Proxy.Socks5
                 }
                 CloseConnection();
                 _socksFailed = true;
-            }).Unwrap();
+            });
         }
 
         private void StopTcp()

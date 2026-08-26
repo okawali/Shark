@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Shark.Data;
 using Shark.DependencyInjection.Extensions;
 using Shark.Net;
@@ -7,85 +7,92 @@ using Shark.Security.Crypto;
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Shark.Server.Net.Internal
 {
     internal class DefaultSharkClient : SharkClient
     {
-        public override event Action<ISocketClient> RemoteDisconnected;
-        public override ILogger Logger { get; }
-        public override IServiceProvider ServiceProvider { get; }
-
-        public override ICryptor Cryptor { get; }
-        protected override IAuthenticator Authenticator { get; }
-        private readonly IKeyGenerator _keyGenerator;
-        private readonly object _syncRoot;
+        private readonly IKeyMaterialDeriver _keyMaterialDeriver;
+        private readonly Lock _syncRoot = new();
         private TcpClient _tcp;
         private NetworkStream _stream;
 
-        public DefaultSharkClient(TcpClient tcp, SharkServer server,
+        public override event Action<ISocketClient> RemoteDisconnected;
+        public override ILogger Logger { get; }
+        public override IServiceProvider ServiceProvider { get; }
+        public override ISymmetricCipher Cipher { get; }
+        protected override IAuthenticator Authenticator { get; }
+
+        public DefaultSharkClient(
+            TcpClient tcp,
+            SharkServer server,
+            CancellationToken lifetimeToken,
             IServiceProvider serviceProvider,
             ILogger<DefaultSharkClient> logger)
-            : base(server)
+            : base(server, lifetimeToken)
         {
             _tcp = tcp;
             _stream = _tcp.GetStream();
-            _syncRoot = new object();
             Logger = logger;
             ServiceProvider = serviceProvider;
-            Cryptor = serviceProvider.GetByConfiguration<ICryptor>();
+            Cipher = serviceProvider.GetByConfiguration<ISymmetricCipher>();
             Authenticator = serviceProvider.GetByConfiguration<IAuthenticator>();
-            _keyGenerator = serviceProvider.GetByConfiguration<IKeyGenerator>();
+            _keyMaterialDeriver = serviceProvider.GetByConfiguration<IKeyMaterialDeriver>();
         }
 
-        public override async Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, int? id = null)
+        protected override async Task<ISocketClient> ConnectToCore(
+            IPEndPoint endPoint,
+            RemoteType type,
+            int? id,
+            CancellationToken token)
         {
-            ISocketClient socket;
-            if (type == RemoteType.Tcp)
+            ISocketClient socket = type == RemoteType.Tcp
+                ? await DefaultSocketClient.ConnectTo(
+                    ServiceProvider,
+                    endPoint,
+                    id,
+                    token,
+                    LifetimeToken,
+                    OperationTimeout)
+                : await UdpSocketClient.ConnectTo(ServiceProvider, endPoint, id, LifetimeToken);
+
+            if (!TryAddRemoteClient(socket))
             {
-                socket = await DefaultSocketClient.ConnectTo(ServiceProvider, endPoint, id);
+                socket.Dispose();
+                throw new SharkException($"A remote client with id {socket.Id} already exists");
             }
-            else
-            {
-                socket = await UdpSocketClient.ConnectTo(ServiceProvider, endPoint, id);
-            }
-            RemoteClients.Add(socket.Id, socket);
             return socket;
         }
 
         public override Task FlushAsync()
         {
-            return _stream.FlushAsync();
+            return _stream.FlushAsync(LifetimeToken);
         }
 
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer)
         {
-            var read = await _stream.ReadAsync(buffer);
+            var read = await _stream.ReadAsync(buffer, LifetimeToken);
             if (read == 0)
             {
                 CloseConnection();
-                CanRead = false;
             }
             return read;
         }
 
         public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer)
         {
-            return _stream.WriteAsync(buffer);
+            return _stream.WriteAsync(buffer, LifetimeToken);
         }
 
         private void CloseConnection()
         {
-            try
+            AbortConnection();
+            if (Logger.IsEnabled(LogLevel.Information))
             {
-                _tcp.Client.Shutdown(SocketShutdown.Send);
+                Logger.LogInformation("Shark no data to read, closed {Id}", Id);
             }
-            catch (Exception)
-            {
-                Logger.LogWarning("Socket errored before shutdown and disconnect");
-            }
-            Logger.LogInformation("Shark no data to read, closed {0}", Id);
             RemoteDisconnected?.Invoke(this);
         }
 
@@ -93,34 +100,44 @@ namespace Shark.Server.Net.Internal
         {
             lock (_syncRoot)
             {
-                if (!Disposed)
+                if (Disposed)
                 {
-                    if (disposing)
+                    return;
+                }
+
+                if (disposing)
+                {
+                    AbortConnection();
+                    try
                     {
-                        try
-                        {
-                            _tcp.Client.Shutdown(SocketShutdown.Both);
-                            _tcp.Client.Disconnect(false);
-                        }
-                        catch (Exception)
-                        {
-                            Logger.LogWarning("Socket errored before shutdown and disconnect");
-                        }
-                        _stream.Dispose();
-                        _tcp.Dispose();
-                        _keyGenerator.Dispose();
-                        RemoteDisconnected = null;
-                        _tcp = null;
-                        _stream = null;
+                        _tcp.Client.Shutdown(SocketShutdown.Both);
                     }
-                    base.Dispose(disposing);
+                    catch (Exception)
+                    {
+                    }
+
+                    _stream?.Dispose();
+                    _tcp?.Dispose();
+                    _keyMaterialDeriver.Dispose();
+                    RemoteDisconnected = null;
+                }
+
+                base.Dispose(disposing);
+
+                if (disposing)
+                {
+                    _tcp = null;
+                    _stream = null;
                 }
             }
         }
 
-        public override void ConfigureCryptor(ReadOnlySpan<byte> password)
+        public override void ConfigureCipher(ReadOnlySpan<byte> password)
         {
-            Cryptor.Init(_keyGenerator.Generate(password, Cryptor.Info));
+            lock (CipherSyncRoot)
+            {
+                Cipher.Initialize(_keyMaterialDeriver.Derive(password, Cipher.Requirements));
+            }
         }
     }
 }

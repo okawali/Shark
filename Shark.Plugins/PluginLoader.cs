@@ -19,7 +19,7 @@ namespace Shark.Plugins
 
         public PluginLoader(string searchPath)
         {
-            Plugins = new List<IPlugin>();
+            Plugins = [];
             SearchPath = searchPath;
             Plugins.Add(new DefaultPlugin());
         }
@@ -27,17 +27,17 @@ namespace Shark.Plugins
         public void Load(IServiceCollection serviceCollection, IConfiguration configuration)
         {
             LoadPlugins(configuration);
-            var cryptor = serviceCollection.AddNamed<ICryptor>(new NameServiceFactorySettings(ServiceLifetime.Scoped, "aes-256-cbc", StringComparer.OrdinalIgnoreCase));
-            var keygen = serviceCollection.AddNamed<IKeyGenerator>(new NameServiceFactorySettings(ServiceLifetime.Scoped, "scrypt", StringComparer.OrdinalIgnoreCase));
+            var cipher = serviceCollection.AddNamed<ISymmetricCipher>(new NameServiceFactorySettings(ServiceLifetime.Scoped, "aes-256-cbc", StringComparer.OrdinalIgnoreCase));
+            var keyMaterialDeriver = serviceCollection.AddNamed<IKeyMaterialDeriver>(new NameServiceFactorySettings(ServiceLifetime.Scoped, "scrypt", StringComparer.OrdinalIgnoreCase));
             var authenticator = serviceCollection.AddNamed<IAuthenticator>(new NameServiceFactorySettings(ServiceLifetime.Scoped, "none", StringComparer.OrdinalIgnoreCase));
 
             foreach (var item in Plugins)
             {
-                item.Configure(serviceCollection, configuration, cryptor, keygen, authenticator);
+                item.Configure(serviceCollection, configuration, cipher, keyMaterialDeriver, authenticator);
             }
 
-            cryptor.Build();
-            keygen.Build();
+            cipher.Build();
+            keyMaterialDeriver.Build();
             authenticator.Build();
         }
 

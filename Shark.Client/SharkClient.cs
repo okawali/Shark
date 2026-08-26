@@ -31,8 +31,8 @@ namespace Shark.Client
         public int Id { private set; get; }
         public bool Initialized { get; private set; }
         public ILogger Logger { get; }
-        public ICryptor Cryptor { get; }
-        public bool CanRead => true;
+        public ISymmetricCipher Cipher { get; }
+        public bool CanRead => !Disposed && !_lifetimeCancellation.IsCancellationRequested;
         public bool Disposed { private set; get; }
         public IServiceProvider ServiceProvider { get; }
 
@@ -40,13 +40,15 @@ namespace Shark.Client
         public event Action<ISocketClient> RemoteDisconnected;
 #pragma warning restore CS0067
 
-        private readonly TaskCompletionSource<int> _stopInternal;
-        private readonly object _syncRoot;
+        private readonly CancellationTokenSource _lifetimeCancellation;
+        private readonly Lock _syncRoot;
         private readonly Timer _disconnectTimer;
         private readonly Timer _closeTimer;
-        private readonly IKeyGenerator _keyGenerator;
+        private readonly IKeyMaterialDeriver _keyMaterialDeriver;
         private readonly IAuthenticator _authenticator;
         private int _closeTimerStarted;
+        private int _disconnectCallbackRunning;
+        private int _transportAborted;
 
         public SharkClient(IServiceProvider serviceProvider,
             ILogger<SharkClient> logger
@@ -62,50 +64,49 @@ namespace Shark.Client
             RemoteClients = new ConcurrentDictionary<int, ISocketClient>();
             DisconnectQueue = new ConcurrentQueue<int>();
             _writeSemaphore = new SemaphoreSlim(1, 1);
-            _stopInternal = new TaskCompletionSource<int>();
-            _syncRoot = new object();
+            _lifetimeCancellation = new CancellationTokenSource();
+            _syncRoot = new Lock();
             _disconnectTimer = new Timer(OnDisconnectTimeout, null, 2000, 2000);
             _closeTimer = new Timer(OnCloseTimeout, null, Timeout.Infinite, Timeout.Infinite);
             _closeTimerStarted = 0;
+            _disconnectCallbackRunning = 0;
+            _transportAborted = 0;
             Logger = logger;
             Initialized = false;
 
-            Cryptor = serviceProvider.GetByConfiguration<ICryptor>();
-            _keyGenerator = serviceProvider.GetByConfiguration<IKeyGenerator>();
+            Cipher = serviceProvider.GetByConfiguration<ISymmetricCipher>();
+            _keyMaterialDeriver = serviceProvider.GetByConfiguration<IKeyMaterialDeriver>();
             _authenticator = serviceProvider.GetByConfiguration<IAuthenticator>();
 
-            if (!int.TryParse(configure?["client:maxWaitTime"], out var seconds) || seconds <= 0) 
+            if (!int.TryParse(configure?["client:maxWaitTime"], out var seconds) || seconds <= 0)
             {
-#if DEBUG
-                seconds = 10;
-#else
-                seconds = 60;
-#endif
+                seconds = (int)SharkDefaults.MaxWaitTime.TotalSeconds;
             }
             _maxWaitTime = TimeSpan.FromSeconds(seconds);
+            ConfigureKeepAlive(tcp.Client, seconds);
         }
 
-        public void ConfigureCryptor(ReadOnlySpan<byte> password)
+        public void ConfigureCipher(ReadOnlySpan<byte> password)
         {
-            Cryptor.Init(_keyGenerator.Generate(password, Cryptor.Info));
+            Cipher.Initialize(_keyMaterialDeriver.Derive(password, Cipher.Requirements));
         }
 
         public void EncryptBlock(ref BlockData block)
         {
-            block.Data = Cryptor?.Encrypt(block.Data.Span) ?? block.Data;
+            block.Data = Cipher?.Encrypt(block.Data.Span) ?? block.Data;
         }
 
         public void DecryptBlock(ref BlockData block)
         {
             if (block.IsValid)
             {
-                block.Data = Cryptor?.Decrypt(block.Data.Span) ?? block.Data;
+                block.Data = Cipher?.Decrypt(block.Data.Span) ?? block.Data;
             }
         }
 
         public async Task Auth()
         {
-            BlockData block = new BlockData() { Id = Id, Type = BlockType.HAND_SHAKE, Data = _authenticator.GenerateChallenge() };
+            var block = new BlockData() { Id = Id, Type = BlockType.HAND_SHAKE, Data = _authenticator.GenerateChallenge() };
 
             await WriteBlock(block);
             block = await ReadBlock();
@@ -131,10 +132,14 @@ namespace Shark.Client
                 }
             }
 
-            block = new BlockData() { Id = Id, Type = BlockType.HAND_SHAKE_RESPONSE };
-            block.Data = _authenticator.GenerateEncodedPassword();
+            block = new BlockData
+            {
+                Id = Id,
+                Type = BlockType.HAND_SHAKE_RESPONSE,
+                Data = _authenticator.GenerateEncodedPassword()
+            };
             await WriteBlock(block);
-            ConfigureCryptor(_authenticator.DecodePassword(block.Data.Span));
+            ConfigureCipher(_authenticator.DecodePassword(block.Data.Span));
 
             Initialized = true;
         }
@@ -145,7 +150,7 @@ namespace Shark.Client
             var password = _authenticator.GenerateEncodedPassword();
             var block = new BlockData() { Id = id, Type = BlockType.FAST_CONNECT };
 
-            ConfigureCryptor(_authenticator.DecodePassword(password));
+            ConfigureCipher(_authenticator.DecodePassword(password));
             block.Data = data;
             EncryptBlock(ref block);
 
@@ -179,8 +184,12 @@ namespace Shark.Client
         public async Task ProxyTo(int id, HostData hostData)
         {
             var hostJsonData = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(hostData));
-            var block = new BlockData() { Id = id, Type = BlockType.CONNECT };
-            block.Data = hostJsonData;
+            var block = new BlockData
+            {
+                Id = id,
+                Type = BlockType.CONNECT,
+                Data = hostJsonData
+            };
             EncryptBlock(ref block);
             await WriteBlock(block);
         }
@@ -196,18 +205,31 @@ namespace Shark.Client
 
         public async Task<BlockData> ReadBlock()
         {
-            var readTask = ReadInternal();
-            var completed = await Task.WhenAny(readTask, _stopInternal.Task);
-            if (readTask == completed)
+            CancelIdleCloseTimer();
+            try
             {
-                if (_closeTimerStarted == 1)
+                var readTask = ReadInternal();
+                if (!Initialized)
                 {
-                    _closeTimer.Change(Timeout.Infinite, Timeout.Infinite);
-                    Interlocked.Exchange(ref _closeTimerStarted, 0);
+                    return await readTask.WaitAsync(_maxWaitTime, _lifetimeCancellation.Token);
                 }
-                return readTask.Result;
+
+                return await readTask.WaitAsync(_lifetimeCancellation.Token);
             }
-            throw new SharkException($"No operation for more than {_maxWaitTime}");
+            catch (TimeoutException ex)
+            {
+                AbortTransport();
+                throw new SharkException($"Shark operation timed out after {_maxWaitTime}", ex);
+            }
+            catch (OperationCanceledException ex) when (_lifetimeCancellation.IsCancellationRequested)
+            {
+                throw new SharkException("Shark connection was closed", ex);
+            }
+            catch
+            {
+                AbortTransport();
+                throw;
+            }
         }
 
         public void CloseSend()
@@ -225,7 +247,10 @@ namespace Shark.Client
         private async Task<BlockData> ReadInternal()
         {
             var block = await ReadHeader();
-            Logger.LogDebug("Receive {0}", block);
+            if (Logger.IsEnabled(LogLevel.Debug))
+            {
+                Logger.LogDebug("Receive {0}", block);
+            }
             if (block.IsValid)
             {
                 block.Data = await ReadData(block.Length);
@@ -236,25 +261,31 @@ namespace Shark.Client
 
         public async Task WriteBlock(BlockData block)
         {
-            var writeTask = WriteInternal(block);
-            var completed = await Task.WhenAny(writeTask, _stopInternal.Task);
-
-            if (writeTask == completed)
+            CancelIdleCloseTimer();
+            try
             {
-                if (_closeTimerStarted == 1)
-                {
-                    _closeTimer.Change(Timeout.Infinite, Timeout.Infinite);
-                    Interlocked.Exchange(ref _closeTimerStarted, 0);
-                }
-                return;
+                await WriteInternal(block)
+                    .WaitAsync(_maxWaitTime, _lifetimeCancellation.Token);
             }
-
-            throw new SharkException($"No operation for more than {_maxWaitTime}");
+            catch (TimeoutException ex)
+            {
+                AbortTransport();
+                throw new SharkException($"Shark operation timed out after {_maxWaitTime}", ex);
+            }
+            catch (OperationCanceledException ex) when (_lifetimeCancellation.IsCancellationRequested)
+            {
+                throw new SharkException("Shark connection was closed", ex);
+            }
+            catch
+            {
+                AbortTransport();
+                throw;
+            }
         }
 
         private async Task WriteInternal(BlockData block)
         {
-            await _writeSemaphore.WaitAsync();
+            await _writeSemaphore.WaitAsync(_lifetimeCancellation.Token);
             try
             {
                 var header = block.GenerateHeader().ToArray();
@@ -269,23 +300,26 @@ namespace Shark.Client
             finally
             {
                 _writeSemaphore.Release();
-                Logger.LogDebug("Sending {0}", block);
+                if (Logger.IsEnabled(LogLevel.Debug))
+                {
+                    Logger.LogDebug("Sending {0}", block);
+                }
             }
         }
 
         public ValueTask<int> ReadAsync(Memory<byte> buffer)
         {
-            return _stream.ReadAsync(buffer);
+            return _stream.ReadAsync(buffer, _lifetimeCancellation.Token);
         }
 
         public ValueTask WriteAsync(ReadOnlyMemory<byte> buffer)
         {
-            return _stream.WriteAsync(buffer);
+            return _stream.WriteAsync(buffer, _lifetimeCancellation.Token);
         }
 
         public Task FlushAsync()
         {
-            return _stream.FlushAsync();
+            return _stream.FlushAsync(_lifetimeCancellation.Token);
         }
 
         private async Task<BlockData> ReadHeader()
@@ -328,8 +362,7 @@ namespace Shark.Client
 
             var data = new byte[length];
             var totalRead = 0;
-            var read = 0;
-
+            int read;
             while ((read = await ReadAsync(new Memory<byte>(data, totalRead, length - totalRead))) != 0)
             {
                 totalRead += read;
@@ -351,47 +384,149 @@ namespace Shark.Client
 
         private void CloseConnection()
         {
-            CloseSend();
-            Logger.LogInformation("Shark no data to read, closed {0}", Id);
+            AbortTransport();
+            if (Logger.IsEnabled(LogLevel.Information))
+            {
+                Logger.LogInformation("Shark no data to read, closed {id}", Id);
+            }
         }
 
         private async void OnDisconnectTimeout(object state)
         {
-            List<int> ids = new List<int>();
-            for (int i = 0; i < 256; i++)
+            if (Interlocked.Exchange(ref _disconnectCallbackRunning, 1) != 0)
             {
-                if (DisconnectQueue.TryDequeue(out var id))
-                {
-                    ids.Add(id);
-                }
-                else
-                {
-                    break;
-                }
+                return;
             }
 
-            if (ids.Count > 0)
+            try
             {
-                try
+                List<int> ids = [];
+                for (int i = 0; i < 256; i++)
                 {
-                    await Disconnect(ids);
+                    if (DisconnectQueue.TryDequeue(out var id))
+                    {
+                        ids.Add(id);
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
-                catch
+
+                if (ids.Count > 0)
                 {
-                    _disconnectTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                    try
+                    {
+                        await Disconnect(ids);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning(ex, "Failed to send disconnect notification; retiring shark client {Id}", Id);
+                        AbortTransport();
+                        return;
+                    }
+                }
+
+                if (RemoteClients.Count == 0 &&
+                    DisconnectQueue.IsEmpty &&
+                    Interlocked.CompareExchange(ref _closeTimerStarted, 1, 0) == 0)
+                {
+                    _closeTimer.Change(_maxWaitTime, Timeout.InfiniteTimeSpan);
                 }
             }
-
-            if (RemoteClients.Count == 0 && DisconnectQueue.IsEmpty && Interlocked.Exchange(ref _closeTimerStarted, 1) == 0)
+            catch (ObjectDisposedException)
             {
-                _closeTimer.Change(_maxWaitTime, Timeout.InfiniteTimeSpan);
+            }
+            finally
+            {
+                Volatile.Write(ref _disconnectCallbackRunning, 0);
             }
         }
 
         private void OnCloseTimeout(object state)
         {
-            Logger.LogWarning($"Client {Id} has suspended for more than {_maxWaitTime}, closing");
-            _stopInternal.TrySetResult(0);
+            Interlocked.Exchange(ref _closeTimerStarted, 0);
+            if (RemoteClients.Count != 0 || !DisconnectQueue.IsEmpty || Disposed)
+            {
+                return;
+            }
+
+            Logger.LogWarning("Client {Id} has suspended for more than {MaxWaitTime}, closing", Id, _maxWaitTime);
+            AbortTransport();
+        }
+
+        private void CancelIdleCloseTimer()
+        {
+            if (Interlocked.Exchange(ref _closeTimerStarted, 0) == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                _closeTimer.Change(Timeout.Infinite, Timeout.Infinite);
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+
+        private void AbortTransport()
+        {
+            if (Interlocked.Exchange(ref _transportAborted, 1) != 0)
+            {
+                return;
+            }
+
+            try
+            {
+                _lifetimeCancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
+            try
+            {
+                _tcp.Client.Shutdown(SocketShutdown.Both);
+            }
+            catch (Exception)
+            {
+            }
+
+            try
+            {
+                _tcp.Dispose();
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        private void ConfigureKeepAlive(Socket socket, int maxWaitSeconds)
+        {
+            var keepAliveTime = maxWaitSeconds;
+            var keepAliveInterval = Math.Max(1, keepAliveTime / 3);
+            const int keepAliveRetryCount = 3;
+
+            try
+            {
+                socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+                socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveTime, keepAliveTime);
+                socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveInterval, keepAliveInterval);
+                socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveRetryCount, keepAliveRetryCount);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to configure TCP keep alive; platform defaults will be used");
+                try
+                {
+                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+                }
+                catch (Exception)
+                {
+                }
+            }
         }
 
         private async Task Disconnect(List<int> ids)
@@ -400,7 +535,10 @@ namespace Shark.Client
             var data = JsonSerializer.Serialize(ids);
             block.Data = Encoding.UTF8.GetBytes(data);
             EncryptBlock(ref block);
-            Logger.LogDebug("Disconnect {0}", data);
+            if (Logger.IsEnabled(LogLevel.Debug))
+            {
+                Logger.LogDebug("Disconnect {0}", data);
+            }
             await WriteBlock(block);
         }
 
@@ -410,7 +548,7 @@ namespace Shark.Client
             return id;
         }
 
-#region IDisposable Support
+        #region IDisposable Support
 
         protected virtual void Dispose(bool disposing)
         {
@@ -420,23 +558,28 @@ namespace Shark.Client
                 {
                     if (disposing)
                     {
-                        // dispose managed state (managed objects).
-                        try
+                        AbortTransport();
+
+                        foreach (var remoteClient in RemoteClients.Values)
                         {
-                            _tcp.Client.Shutdown(SocketShutdown.Both);
-                            _tcp.Client.Disconnect(false);
+                            try
+                            {
+                                remoteClient.Dispose();
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.LogWarning(ex, "Failed to dispose remote client {Id}", remoteClient.Id);
+                            }
                         }
-                        catch (Exception)
-                        {
-                            Logger.LogWarning("Socket errored before shutdown and disconnect");
-                        }
-                        _stream.Dispose();
+
+                        _stream?.Dispose();
                         _tcp.Dispose();
-                        _writeSemaphore.Dispose();
                         _disconnectTimer.Dispose();
+                        _closeTimer.Dispose();
+                        _lifetimeCancellation.Dispose();
                         _authenticator.Dispose();
-                        _keyGenerator.Dispose();
-                        Cryptor.Dispose();
+                        _keyMaterialDeriver.Dispose();
+                        Cipher.Dispose();
                         RemoteClients.Clear();
                     }
 
@@ -460,25 +603,45 @@ namespace Shark.Client
             Dispose(true);
             GC.SuppressFinalize(this);
         }
-#endregion
+        #endregion
 
         public async Task<ISocketClient> ConnectTo(IPAddress address, int port, RemoteType type = RemoteType.Tcp, int? id = null)
         {
-            await _tcp.ConnectAsync(address, port);
-            _stream = _tcp.GetStream();
-            return this;
+            return await CompleteConnect(_tcp.ConnectAsync(address, port, _lifetimeCancellation.Token));
         }
 
         public async Task<ISocketClient> ConnectTo(string address, int port, RemoteType type = RemoteType.Tcp, int? id = null)
         {
-            await _tcp.ConnectAsync(address, port);
-            _stream = _tcp.GetStream();
-            return this;
+            return await CompleteConnect(_tcp.ConnectAsync(address, port, _lifetimeCancellation.Token));
         }
 
         public Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, int? id = null)
         {
             return ConnectTo(endPoint.Address, endPoint.Port, type, id);
+        }
+
+        private async Task<ISocketClient> CompleteConnect(ValueTask connectTask)
+        {
+            try
+            {
+                await connectTask.AsTask().WaitAsync(_maxWaitTime, _lifetimeCancellation.Token);
+                _stream = _tcp.GetStream();
+                return this;
+            }
+            catch (TimeoutException ex)
+            {
+                AbortTransport();
+                throw new SharkException($"Connecting to the shark server timed out after {_maxWaitTime}", ex);
+            }
+            catch (OperationCanceledException ex) when (_lifetimeCancellation.IsCancellationRequested)
+            {
+                throw new SharkException("Connecting to the shark server was cancelled", ex);
+            }
+            catch
+            {
+                AbortTransport();
+                throw;
+            }
         }
     }
 }

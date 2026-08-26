@@ -9,12 +9,13 @@ namespace Shark.Plugins
 {
     class DefaultPlugin : IPlugin
     {
-        public void Configure(IServiceCollection services, IConfiguration configuration, NamedServiceFactoryBuilder<ICryptor> cryptor, NamedServiceFactoryBuilder<IKeyGenerator> keygen, NamedServiceFactoryBuilder<IAuthenticator> authenticator)
+        public void Configure(IServiceCollection services, IConfiguration configuration, NamedServiceFactoryBuilder<ISymmetricCipher> cipher, NamedServiceFactoryBuilder<IKeyMaterialDeriver> keyMaterialDeriver, NamedServiceFactoryBuilder<IAuthenticator> authenticator)
         {
-            cryptor.AddScoped<AesCryptor>("aes-256-cbc")
-                .AddScoped<AesGcmCryptor>("aes-256-gcm");
-            keygen.AddSingleton<ScryptKeyGenerator>("scrypt");
-            authenticator.AddSingleton<NoneAuthenticator>("none");
+            cipher.AddScoped<AesCbcCipher>("aes-256-cbc")
+                .AddScoped<AesGcmCipher>("aes-256-gcm");
+            keyMaterialDeriver.AddSingleton<ScryptKeyMaterialDeriver>("scrypt");
+            authenticator
+            .AddSingleton<NoneAuthenticator>("none");
         }
     }
 }

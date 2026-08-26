@@ -21,7 +21,7 @@ namespace Shark.Client.Proxy.Http
             Logger = logger;
         }
 
-        protected override IProxyClient CreateClient(TcpClient tcp, ISharkClient shark)
+        protected override ProxyClient CreateClient(TcpClient tcp, ISharkClient shark)
         {
             return ActivatorUtilities.CreateInstance<HttpProxyClient>(shark.ServiceProvider, tcp, this, shark);
         }

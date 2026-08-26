@@ -30,12 +30,9 @@ namespace Shark.Data
             using (var pin = other.Pin())
             {
                 byte* ptr = (byte*)pin.Pointer;
-                byte tmp = ptr[0];
-                ptr[0] = ptr[1];
-                ptr[1] = tmp;
-                result.Port = *(ushort*)(ptr);
-                ptr[1] = ptr[0];
-                ptr[0] = tmp;
+                (ptr[1], ptr[0]) = (ptr[0], ptr[1]);
+                result.Port = *(ushort*)ptr;
+                (ptr[1], ptr[0]) = (ptr[0], ptr[1]);
             }
             left = other[2..];
             return result;

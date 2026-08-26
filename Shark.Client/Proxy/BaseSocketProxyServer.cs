@@ -1,10 +1,11 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Shark.Security.Authentication;
+using Shark.Data;
 using Shark.Net;
-using Shark.Net.Client;
 using Shark.Options;
 using System;
+using System.Collections.Concurrent;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -12,22 +13,18 @@ using System.Threading.Tasks;
 
 namespace Shark.Client.Proxy
 {
-    internal abstract class BaseSocketProxyServer : ProxyServer
+    internal abstract class BaseSocketProxyServer(
+        ProxyProtocol protocol,
+        IServiceProvider serviceProvider,
+        IOptions<BindingOptions> bindingOptions,
+        IOptions<ProxyRemoteOptions> proxyOptions) : ProxyServer(serviceProvider, proxyOptions)
     {
+        private readonly ConcurrentDictionary<int, Task> _clientLoops = new();
         private TcpListener _listener;
+        private int _nextClientLoopId;
 
-        public ProxyProtocol Protocol { get; private set; }
-        public IOptions<BindingOptions> BindingOptions { get; }
-
-        public BaseSocketProxyServer(ProxyProtocol protocol,
-            IServiceProvider serviceProvider,
-            IOptions<BindingOptions> bindingOptions,
-            IOptions<ProxyRemoteOptions> proxyOptions)
-            : base(serviceProvider, proxyOptions)
-        {
-            Protocol = protocol;
-            BindingOptions = bindingOptions;
-        }
+        public ProxyProtocol Protocol { get; private set; } = protocol;
+        public IOptions<BindingOptions> BindingOptions { get; } = bindingOptions;
 
         public void Bind(IPEndPoint endPoint)
         {
@@ -42,9 +39,16 @@ namespace Shark.Client.Proxy
         {
             Bind(BindingOptions.Value.EndPoint);
             _listener.Start(BindingOptions.Value.Backlog);
-            Logger.LogInformation("Started, listening on {Endpoint}, protocol: {Protocol}, max connections: {Max}, backlog: {Backlog}",
-                _listener.LocalEndpoint, Protocol, MaxCount == 0 ? "unlimited" : MaxCount.ToString(), BindingOptions.Value.Backlog);
-            Logger.LogInformation("Shark server {Remote}", Remote);
+            if (Logger.IsEnabled(LogLevel.Information))
+            {
+                Logger.LogInformation(
+                    "Started, listening on {Endpoint}, protocol: {Protocol}, max connections: {Max}, backlog: {Backlog}",
+                    _listener.LocalEndpoint,
+                    Protocol,
+                    MaxCount == 0 ? "unlimited" : MaxCount.ToString(),
+                    BindingOptions.Value.Backlog);
+                Logger.LogInformation("Shark server {Remote}", Remote);
+            }
             return StartAccept(token);
         }
 
@@ -52,117 +56,171 @@ namespace Shark.Client.Proxy
         {
             try
             {
-                while (true)
+                while (!token.IsCancellationRequested)
                 {
                     var client = await _listener.AcceptTcpClientAsync(token);
-                    StartClientLoop(client);
+                    TrackClientLoop(client, token);
                 }
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
             }
             finally
             {
                 _listener.Stop();
+
+                var activeLoops = _clientLoops.Values.ToArray();
+                if (activeLoops.Length > 0)
+                {
+                    try
+                    {
+                        await Task.WhenAll(activeLoops);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError(ex, "One or more proxy client loops failed during shutdown");
+                    }
+                }
             }
         }
 
-        private async void StartClientLoop(TcpClient client)
+        private void TrackClientLoop(TcpClient client, CancellationToken token)
         {
-            IProxyClient proxyClient = null;
+            var loopId = Interlocked.Increment(ref _nextClientLoopId);
+            var task = StartClientLoop(client, token);
+            _clientLoops.TryAdd(loopId, task);
+            _ = ObserveClientLoop(loopId, task);
+        }
+
+        private async Task ObserveClientLoop(int loopId, Task task)
+        {
+            try
+            {
+                await task;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Unexpected proxy client loop failure");
+            }
+            finally
+            {
+                _clientLoops.TryRemove(loopId, out _);
+            }
+        }
+
+        private async Task StartClientLoop(TcpClient client, CancellationToken token)
+        {
+            await Task.Yield();
+
+            ProxyClient proxyClient = null;
+            ISharkClient shark = null;
+            var pendingShark = false;
+            var transportFailure = false;
+            var keepProxyClient = false;
 
             try
             {
-                var shark = await GetOrCreateSharkClient();
-                proxyClient = CreateClient(client, shark);
+                token.ThrowIfCancellationRequested();
+                shark = await GetOrCreateSharkClient(token);
+                pendingShark = !shark.Initialized;
 
-                var sharkFirstInitialized = false;
+                proxyClient = CreateClient(client, shark);
+                proxyClient.RemoteDisconnected += OnClientRemoteDisconnected;
 
                 shark.RemoteClients.Add(proxyClient.Id, proxyClient);
                 Clients.Add(proxyClient.Id, proxyClient);
 
-                try
+                var host = await proxyClient.StartAndProcessRequest()
+                    .WaitAsync(OperationTimeout, token);
+
+                if (pendingShark)
                 {
-                    var host = await proxyClient.StartAndProcessRequest();
-                    if (!shark.Initialized)
+                    BlockData result;
+                    try
                     {
-                        var result = await shark.FastConnect(proxyClient.Id, host);
-                        Sharks.Add(shark.Id, shark);
-                        sharkFirstInitialized = true;
-                        Interlocked.Decrement(ref _waitingCount);
-                        await proxyClient.ProcessSharkData(result);
-                    }
-                    else
-                    {
-                        await shark.ProxyTo(proxyClient.Id, host);
-                    }
+                        result = await shark.FastConnect(proxyClient.Id, host)
+                            .WaitAsync(token);
 
-                    proxyClient.RemoteDisconnected += OnClientRemoteDisconnected;
-                }
-                catch (AuthenticationException ex)
-                {
-
-                    Logger.LogError(ex, $"Client Auth failed");
-                    shark.Dispose();
-                    Interlocked.Decrement(ref _waitingCount);
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogError(ex, $"Process Connect failed for {proxyClient.Id}");
-
-                    shark.RemoteClients.Remove(proxyClient.Id);
-                    Clients.Remove(proxyClient.Id);
-                    proxyClient.Dispose();
-
-                    if (!shark.Initialized)
-                    {
-                        try
+                        var published = PublishShark(shark);
+                        pendingShark = false;
+                        if (!published)
                         {
-                            await shark.Auth();
-                            Sharks.Add(shark.Id, shark);
-                            sharkFirstInitialized = true;
-                        }
-                        catch (Exception e)
-                        {
-                            shark.Dispose();
-                            shark.Logger.LogWarning($"Shark client {shark.Id} initialization failed, {e} ");
-                            throw;
-                        }
-                        finally
-                        {
-                            Interlocked.Decrement(ref _waitingCount);
+                            throw new SharkException("Failed to publish the initialized shark connection");
                         }
                     }
-                }
+                    catch
+                    {
+                        transportFailure = true;
+                        throw;
+                    }
 
-                if (sharkFirstInitialized)
-                {
-#pragma warning disable CS4014
-                    StartSharkLoop(shark);
-#pragma warning restore CS4014
-                }
-            }
-            catch (Exception)
-            {
-                Logger.LogWarning("Failed to start client loop");
-                if (proxyClient != null)
-                {
-                    proxyClient.Dispose();
+                    _ = StartSharkLoop(shark);
+                    keepProxyClient = await proxyClient.ProcessSharkData(result)
+                        .WaitAsync(OperationTimeout, token);
                 }
                 else
                 {
                     try
                     {
-                        client.Client.Shutdown(SocketShutdown.Both);
-                        client.Client.Disconnect(false);
+                        await shark.ProxyTo(proxyClient.Id, host)
+                            .WaitAsync(token);
+
+                        keepProxyClient = await proxyClient.WaitForConnection(OperationTimeout, token);
                     }
-                    catch (Exception)
+                    catch
                     {
-                        // 
+                        transportFailure = true;
+                        throw;
                     }
-                    client.Dispose();
+                }
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                Logger.LogDebug("Proxy client loop cancelled");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Process connect failed for {Id}", proxyClient?.Id);
+            }
+            finally
+            {
+                if (pendingShark)
+                {
+                    AbandonPendingShark(shark);
+                }
+                else if (transportFailure)
+                {
+                    RetireShark(shark);
+                }
+
+                if (!keepProxyClient)
+                {
+                    if (proxyClient != null)
+                    {
+                        RemoveClient(proxyClient);
+                        proxyClient.Dispose();
+                    }
+                    else
+                    {
+                        CloseClient(client);
+                    }
                 }
             }
         }
 
+        private static void CloseClient(TcpClient client)
+        {
+            try
+            {
+                client.Client.Shutdown(SocketShutdown.Both);
+                client.Client.Disconnect(false);
+            }
+            catch (Exception)
+            {
+            }
+            client.Dispose();
+        }
 
-        protected abstract IProxyClient CreateClient(TcpClient tcp, ISharkClient shark);
+        protected abstract ProxyClient CreateClient(TcpClient tcp, ISharkClient shark);
     }
 }

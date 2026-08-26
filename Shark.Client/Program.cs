@@ -137,11 +137,11 @@ namespace Shark.Client
                                     };
                                     options.MaxClientCount = maxCount;
                                 })
-                                .Configure<GenericOptions<ICryptor>>(options =>
+                                .Configure<GenericOptions<ISymmetricCipher>>(options =>
                                 {
                                     options.Name = configuration["shark:crypto"];
                                 })
-                                .Configure<GenericOptions<IKeyGenerator>>(options =>
+                                .Configure<GenericOptions<IKeyMaterialDeriver>>(options =>
                                 {
                                     options.Name = configuration["shark:keygen"];
                                 })
@@ -151,6 +151,7 @@ namespace Shark.Client
                                 })
                                 .AddLogging(builder =>
                                 {
+                                    builder.ClearProviders();
                                     builder.AddConsole();
                                     builder.SetMinimumLevel(logLevel);
                                 })

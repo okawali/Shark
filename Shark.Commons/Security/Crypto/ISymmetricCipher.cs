@@ -2,25 +2,25 @@
 
 namespace Shark.Security.Crypto
 {
-    public interface ICryptor : IDisposable
+    public interface ISymmetricCipher : IDisposable
     {
-        CryptoInfo Info { get; }
+        CipherRequirements Requirements { get; }
 
         /// <summary>
-        /// init the cryptor
+        /// Initializes the cipher with the supplied key material.
         /// </summary>
-        void Init(CryptoKey key);
+        void Initialize(SymmetricKeyMaterial keyMaterial);
 
 
         /// <summary>
-        /// encrypt the buffer, and reset the crypto stream
+        /// Encrypts the buffer and resets the cipher stream.
         /// </summary>
         /// <param name="inputBuffer"></param>
         /// <returns></returns>
         byte[] Encrypt(ReadOnlySpan<byte> inputBuffer);
 
         /// <summary>
-        /// decrypt the buffer, and reset the crypto stream
+        /// Decrypts the buffer and resets the cipher stream.
         /// </summary>
         /// <param name="inputBuffer"></param>
         /// <returns></returns>

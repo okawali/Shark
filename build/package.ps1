@@ -6,6 +6,8 @@ dotnet publish -c Release -r win-x64 Shark.Client
 dotnet publish -c Release -r osx-x64 Shark.Client
 dotnet publish -c Release -r linux-x64 Shark.Client
 
+dotnet publish -c Release Shark.SimpleAuth
+
 dotnet pack -c Release Shark.Client.Tool
 dotnet pack -c Release Shark.Server.Tool
 dotnet pack -c Release Shark.Commons
@@ -13,6 +15,11 @@ dotnet pack -c Release Shark.Commons
 Add-Type -A System.IO.Compression.FileSystem
 
 Remove-Item * -Include *.zip,*.nupkg
+
+#plugin
+$inPath = Join-Path (Get-Item -Path "./").FullName 'Shark.SimpleAuth/bin/Release/net10.0/publish'
+$outPath = Join-Path (Get-Item -Path "./").FullName 'Shark.SimpleAuth.zip'
+[IO.Compression.ZipFile]::CreateFromDirectory($inPath, $outPath, [System.IO.Compression.CompressionLevel]::Optimal, $False)
 
 #win-x64
 $inPath = Join-Path (Get-Item -Path "./").FullName 'Shark.Server/bin/Release/net10.0/win-x64/publish'
@@ -33,7 +40,7 @@ $outPath = Join-Path (Get-Item -Path "./").FullName 'shark-osx-x64.zip'
 [IO.Compression.ZipFile]::CreateFromDirectory($inPath, $outPath, [System.IO.Compression.CompressionLevel]::Optimal, $False)
 
 
-#ubuntu.18.04-x64
+#linux-x64
 $inPath = Join-Path (Get-Item -Path "./").FullName 'Shark.Server/bin/Release/net10.0/linux-x64/publish'
 $outPath = Join-Path (Get-Item -Path "./").FullName 'shark-server-linux-x64.zip'
 [IO.Compression.ZipFile]::CreateFromDirectory($inPath, $outPath, [System.IO.Compression.CompressionLevel]::Optimal, $False)

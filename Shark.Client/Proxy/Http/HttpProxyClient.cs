@@ -15,10 +15,10 @@ namespace Shark.Client.Proxy.Http
 {
     internal class HttpProxyClient : ProxyClient
     {
-        private NetworkStream _stream;
-        private HttpProxyRequest _request;
-        private Pipe _pipe;
-        private TcpClient _client;
+        private readonly NetworkStream _stream;
+        private readonly HttpProxyRequest _request;
+        private readonly Pipe _pipe;
+        private readonly TcpClient _client;
         private bool _httpFailed;
 
         public override ILogger Logger { get; }
@@ -55,13 +55,23 @@ namespace Shark.Client.Proxy.Http
                 }
                 else
                 {
-                    var headerBlock = new BlockData() { Id = Id, BlockNumber = 0, Type = BlockType.DATA };
-                    headerBlock.Data = _request.GenerateHttpHeader();
+                    var headerBlock = new BlockData
+                    {
+                        Id = Id,
+                        BlockNumber = 0,
+                        Type = BlockType.DATA,
+                        Data = _request.GenerateHttpHeader()
+                    };
                     Shark.EncryptBlock(ref headerBlock);
                     await Shark.WriteBlock(headerBlock);
                 }
 
-                Logger.LogInformation($"{_request.HostData} connected, {Id}");
+                if (Logger.IsEnabled(LogLevel.Information))
+                {
+                    Logger.LogInformation("{Host} connected, {Id}", _request.HostData, Id);
+                }
+
+                CompleteConnection(true);
 
 #pragma warning disable CS4014
                 ProcessData(_request.IsConnect ? 0 : 1);
@@ -82,6 +92,8 @@ namespace Shark.Client.Proxy.Http
 
                 Logger.LogWarning($"Connect to {_request.HostData} failed, {Id}");
 
+                CompleteConnection(false);
+
                 return false;
             }
             else if (block.Type == BlockType.DATA)
@@ -95,7 +107,7 @@ namespace Shark.Client.Proxy.Http
 
         public override Task<HostData> StartAndProcessRequest()
         {
-            ReadFromStream();
+            _ = ReadFromStream();
 
             return ProcessRequest();
         }
@@ -168,7 +180,10 @@ namespace Shark.Client.Proxy.Http
 
             if (valid && !noValidData)
             {
-                Logger.LogInformation($"Connecting to {_request.HostData}, {Id}");
+                if (Logger.IsEnabled(LogLevel.Information))
+                {
+                    Logger.LogInformation("Connecting to {Host}, {Id}", _request.HostData, Id);
+                }
                 return _request.HostData;
             }
             else if (noValidData)
@@ -196,7 +211,7 @@ namespace Shark.Client.Proxy.Http
 
         }
 
-        private async void ReadFromStream()
+        private async Task ReadFromStream()
         {
             var writer = _pipe.Writer;
             try
@@ -233,7 +248,7 @@ namespace Shark.Client.Proxy.Http
 
         private Task ProcessData(int initialNumber = 0)
         {
-            return Task.Factory.StartNew(async () =>
+            return Task.Run(async () =>
             {
                 var reader = _pipe.Reader;
                 try
@@ -275,7 +290,7 @@ namespace Shark.Client.Proxy.Http
                 CloseConnection();
                 reader.Complete();
                 _httpFailed = true;
-            }).Unwrap();
+            });
         }
 
         private void CloseConnection()
@@ -288,7 +303,10 @@ namespace Shark.Client.Proxy.Http
             {
                 Logger.LogWarning("Socket errored before shutdown and disconnect");
             }
-            Logger.LogInformation("Http no data to read, closed {0}", Id);
+            if (Logger.IsEnabled(LogLevel.Information))
+            {
+                Logger.LogInformation("Http no data to read, closed {0}", Id);
+            }
             RemoteDisconnected?.Invoke(this);
         }
 

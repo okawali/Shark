@@ -9,6 +9,6 @@ namespace Shark.Client.Proxy
         public const int RESUME_WRITER_SIZE = 64 * 1024 * 1024; // 64M;
 
         public static PipeOptions DefaultPipeOptions =>
-            new PipeOptions(minimumSegmentSize: BUFFER_SIZE, pauseWriterThreshold: PAUSE_WRITER_SIZE, resumeWriterThreshold: RESUME_WRITER_SIZE);
+            new(minimumSegmentSize: BUFFER_SIZE, pauseWriterThreshold: PAUSE_WRITER_SIZE, resumeWriterThreshold: RESUME_WRITER_SIZE);
     }
 }

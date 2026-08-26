@@ -1,43 +1,114 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Shark.Net;
 using Shark.Net.Server;
 using System;
+using System.Collections.Concurrent;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Shark.Server
 {
-    class Worker : BackgroundService
+    internal class Worker(IServiceProvider services) : BackgroundService
     {
-        private readonly IServiceProvider _services;
+        private readonly ConcurrentDictionary<int, Task> _clientTasks = new();
+        private readonly IServiceProvider _services = services;
+        private int _nextClientTaskId;
 
-        public Worker(IServiceProvider services)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _services = services;
+            var server = _services.GetRequiredService<ISharkServer>();
+            server.OnClientConnected(TrackClient);
+
+            try
+            {
+                await server.Start(stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+            }
+            finally
+            {
+                foreach (var client in server.Clients.Values.OfType<Net.SharkClient>().ToArray())
+                {
+                    client.AbortConnection();
+                }
+
+                await DrainClientTasks();
+                server.Dispose();
+            }
         }
 
-        protected override Task ExecuteAsync(CancellationToken stoppingToken)
+        private void TrackClient(ISharkClient client)
         {
-            return _services.GetRequiredService<ISharkServer>()
-                 .OnClientConnected(async client =>
-                 {
-                     try
-                     {
-                         await client.Auth();
-                         await client.RunSharkLoop();
-                     }
-                     catch (Exception e)
-                     {
+            var taskId = Interlocked.Increment(ref _nextClientTaskId);
+            var task = HandleClient(client);
+            _clientTasks.TryAdd(taskId, task);
+            _ = ObserveClientTask(taskId, client, task);
+        }
 
-                         client.Logger.LogError(e, "Shark client errored");
-                     }
-                     finally
-                     {
-                         client.Dispose();
-                     }
-                 })
-                .Start(stoppingToken);
+        private static async Task HandleClient(ISharkClient client)
+        {
+            await Task.Yield();
+            try
+            {
+                await client.Auth();
+                await client.RunSharkLoop();
+            }
+            catch (Exception ex)
+            {
+                if (client.CanRead)
+                {
+                    client.Logger.LogError(ex, "Shark client errored");
+                }
+            }
+            finally
+            {
+                if (client is Net.SharkClient serverClient)
+                {
+                    serverClient.AbortConnection();
+                    await serverClient.DrainOperationsAsync();
+                }
+                client.Dispose();
+            }
+        }
+
+        private async Task ObserveClientTask(int taskId, ISharkClient client, Task task)
+        {
+            try
+            {
+                await task;
+            }
+            catch (Exception ex)
+            {
+                client.Logger.LogError(ex, "Unexpected shark client task failure");
+            }
+            finally
+            {
+                _clientTasks.TryRemove(taskId, out _);
+            }
+        }
+
+        private async Task DrainClientTasks()
+        {
+            while (true)
+            {
+                var activeTasks = _clientTasks.Values.ToArray();
+                if (activeTasks.Length == 0)
+                {
+                    return;
+                }
+
+                try
+                {
+                    await Task.WhenAll(activeTasks);
+                }
+                catch (Exception)
+                {
+                }
+            }
         }
     }
 }

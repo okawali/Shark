@@ -3,13 +3,14 @@ using System.Text.RegularExpressions;
 
 namespace Shark.Utils
 {
-    public static class PathUtils
+    public static partial class PathUtils
     {
-        private readonly static Regex PathReplacement = new Regex("\\$\\{(.+?)\\}", RegexOptions.Compiled);
+        [GeneratedRegex("\\$\\{(.+?)\\}")]
+        private static partial Regex PathReplacementRegex();
 
         public static string ResolvePath(string origin, IConfiguration configuration)
         {
-            var match = PathReplacement.Match(origin);
+            var match = PathReplacementRegex().Match(origin);
 
             if (match.Success)
             {

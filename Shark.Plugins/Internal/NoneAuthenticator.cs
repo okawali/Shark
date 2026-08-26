@@ -10,7 +10,7 @@ namespace Shark.Plugins.Internal
 
         public byte[] GenerateChallenge()
         {
-            return Array.Empty<byte>();
+            return [];
         }
 
         public byte[] GenerateEncodedPassword()
@@ -20,7 +20,7 @@ namespace Shark.Plugins.Internal
 
         public byte[] ValidateChallenge(ReadOnlySpan<byte> input)
         {
-            return Array.Empty<byte>();
+            return [];
         }
 
         public void ValidateChallengeResponse(ReadOnlySpan<byte> input)

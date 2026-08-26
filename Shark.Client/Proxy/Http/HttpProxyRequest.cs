@@ -8,9 +8,10 @@ using System.Text.RegularExpressions;
 
 namespace Shark.Client.Proxy.Http
 {
-    public class HttpProxyRequest
+    public partial class HttpProxyRequest
     {
-        private static readonly Regex HTTP_PATH_REGEX = new Regex("http://([^/]+)(.*)");
+        [GeneratedRegex("http://([^/]+)(.*)")]
+        private static partial Regex HttpPathRegex();
 
         public string Version { private set; get; }
         public string Method { private set; get; }
@@ -98,7 +99,7 @@ namespace Shark.Client.Proxy.Http
             }
             else
             {
-                var match = HTTP_PATH_REGEX.Match(host);
+                var match = HttpPathRegex().Match(host);
                 _path = match.Groups[2].Value;
                 var hostLines = match.Groups[1].Value.Split(":");
                 HostData.Address = hostLines[0];

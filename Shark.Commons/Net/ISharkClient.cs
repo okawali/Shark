@@ -20,7 +20,7 @@ namespace Shark.Net
         Task<ISocketClient> ConnectTo(string address, int port, RemoteType type = RemoteType.Tcp, int? id = null);
         Task<ISocketClient> ConnectTo(IPEndPoint endPoint, RemoteType type = RemoteType.Tcp, int? id = null);
 
-        ICryptor Cryptor { get; }
+        ISymmetricCipher Cipher { get; }
         ConcurrentQueue<int> DisconnectQueue { get; }
 
         Task<BlockData> ReadBlock();
@@ -29,7 +29,7 @@ namespace Shark.Net
         Task<BlockData> FastConnect(int id, HostData hostData);
         Task ProxyTo(int id, HostData hostData);
 
-        void ConfigureCryptor(ReadOnlySpan<byte> password);
+        void ConfigureCipher(ReadOnlySpan<byte> password);
         void EncryptBlock(ref BlockData block);
         void DecryptBlock(ref BlockData block);
         void RemoveRemoteClient(int id);

@@ -8,6 +8,6 @@ namespace Shark.Plugins
 {
     public interface IPlugin
     {
-        void Configure(IServiceCollection services, IConfiguration configuration, NamedServiceFactoryBuilder<ICryptor> cryptor, NamedServiceFactoryBuilder<IKeyGenerator> keygen, NamedServiceFactoryBuilder<IAuthenticator> authenticator);
+        void Configure(IServiceCollection services, IConfiguration configuration, NamedServiceFactoryBuilder<ISymmetricCipher> cipher, NamedServiceFactoryBuilder<IKeyMaterialDeriver> keyMaterialDeriver, NamedServiceFactoryBuilder<IAuthenticator> authenticator);
     }
 }

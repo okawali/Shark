@@ -1,5 +1,6 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Shark.Constants;
 using Shark.Data;
 using Shark.Net;
 using Shark.Utils;
@@ -7,70 +8,73 @@ using System;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Shark.Server.Net.Internal
 {
     internal class UdpSocketClient : ISocketClient
     {
-        public bool Disposed { get; private set; }
-        public int Id { get; private set; }
-        public ILogger Logger { get; }
+        private readonly ConcurrentDictionary<IPEndPoint, SocksRemote> _endPointMap = new();
+        private readonly ConcurrentDictionary<SocksRemote, IPEndPoint> _addressMap = new();
+        private readonly CancellationTokenSource _lifetimeCancellation;
+        private readonly Lock _syncRoot = new();
+        private readonly UdpClient _udp;
+        private SocksRemote _lastRemote;
 
+        public bool Disposed { get; private set; }
+        public int Id { get; }
+        public ILogger Logger { get; }
         public IServiceProvider ServiceProvider { get; }
 #pragma warning disable CS0067
         public event Action<ISocketClient> RemoteDisconnected;
 #pragma warning restore CS0067
 
-        private readonly object _syncRoot;
-        private readonly UdpClient _udp;
-        private readonly ConcurrentDictionary<IPEndPoint, SocksRemote> _endPointMap;
-        private readonly ConcurrentDictionary<SocksRemote, IPEndPoint> _addressMap;
-        private SocksRemote lastRemote;
-
-        public UdpSocketClient(UdpClient udp, int? id, IServiceProvider serviceProvider, ILogger<UdpSocketClient> logger)
+        public UdpSocketClient(
+            UdpClient udp,
+            int? id,
+            CancellationToken lifetimeToken,
+            IServiceProvider serviceProvider,
+            ILogger<UdpSocketClient> logger)
         {
             _udp = udp;
-
-            if (id != null)
-            {
-                Id = id.Value;
-            }
-            else
-            {
-                Id = RandomIdGenerator.NewId();
-            }
-            _syncRoot = new object();
-            _endPointMap = new ConcurrentDictionary<IPEndPoint, SocksRemote>();
-            _addressMap = new ConcurrentDictionary<SocksRemote, IPEndPoint>();
+            Id = id ?? RandomIdGenerator.NewId();
             Logger = logger;
             ServiceProvider = serviceProvider;
+            _lifetimeCancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetimeToken);
         }
-
 
         public Task FlushAsync()
         {
-            return Task.FromResult(0);
+            return Task.CompletedTask;
         }
 
         public async ValueTask<int> ReadAsync(Memory<byte> buffer)
         {
-            var readTask = _udp.ReceiveAsync();
-            var complete = await Task.WhenAny(readTask, Task.Delay(TimeSpan.FromSeconds(30)));
+            using var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCancellation.Token);
+            operationCancellation.CancelAfter(SharkDefaults.MaxWaitTime);
 
-            if (complete != readTask)
+            UdpReceiveResult result;
+            try
             {
-                Logger.LogWarning("Udp receive timeout, {0}", Id);
+                result = await _udp.ReceiveAsync(operationCancellation.Token);
+            }
+            catch (OperationCanceledException) when (!_lifetimeCancellation.IsCancellationRequested)
+            {
+                Logger.LogWarning("UDP receive timed out for {Id}", Id);
                 return 0;
             }
 
-            var result = readTask.Result;
             if (!_endPointMap.TryGetValue(result.RemoteEndPoint, out var remote))
             {
-                remote = lastRemote;
+                remote = _lastRemote;
+            }
+            if (remote == null)
+            {
+                return 0;
             }
 
-            var resultBytes = new UdpPackData()
+            var resultBytes = new UdpPackData
             {
                 Data = result.Buffer,
                 Remote = remote
@@ -82,7 +86,6 @@ namespace Shark.Server.Net.Internal
             }
 
             resultBytes.CopyTo(buffer);
-
             return resultBytes.Length;
         }
 
@@ -91,27 +94,35 @@ namespace Shark.Server.Net.Internal
             var packData = UdpPackData.Parse(buffer);
             if (!_addressMap.TryGetValue(packData.Remote, out var endPoint))
             {
-                if (IPAddress.TryParse(packData.Remote.Address, out var address))
+                IPAddress address = null;
+                if (!IPAddress.TryParse(packData.Remote.Address, out address))
                 {
-                    endPoint = new IPEndPoint(address, packData.Remote.Port);
-                }
-                else
-                {
-                    foreach (var addr in await Dns.GetHostAddressesAsync(packData.Remote.Address))
+                    using var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCancellation.Token);
+                    operationCancellation.CancelAfter(SharkDefaults.MaxWaitTime);
+                    foreach (var resolvedAddress in await Dns.GetHostAddressesAsync(
+                        packData.Remote.Address,
+                        operationCancellation.Token))
                     {
-                        if (addr.AddressFamily == AddressFamily.InterNetwork)
+                        if (resolvedAddress.AddressFamily == AddressFamily.InterNetwork)
                         {
-                            address = addr;
+                            address = resolvedAddress;
                             break;
                         }
                     }
-                    endPoint = new IPEndPoint(address, packData.Remote.Port);
                 }
+
+                if (address == null)
+                {
+                    throw new SharkException($"Cannot resolve UDP destination {packData.Remote.Address}");
+                }
+
+                endPoint = new IPEndPoint(address, packData.Remote.Port);
                 _addressMap.TryAdd(packData.Remote, endPoint);
                 _endPointMap.TryAdd(endPoint, packData.Remote);
             }
-            await _udp.SendAsync(packData.Data, packData.Data.Length, endPoint);
-            lastRemote = packData.Remote;
+
+            await _udp.SendAsync(packData.Data.AsMemory(), endPoint, _lifetimeCancellation.Token);
+            _lastRemote = packData.Remote;
         }
 
         #region IDisposable Support
@@ -119,32 +130,47 @@ namespace Shark.Server.Net.Internal
         {
             lock (_syncRoot)
             {
-                if (!Disposed)
+                if (Disposed)
                 {
-                    if (disposing)
-                    {
-                        _udp.Dispose();
-                    }
-
-                    Disposed = true;
+                    return;
                 }
+
+                if (disposing)
+                {
+                    try
+                    {
+                        _lifetimeCancellation.Cancel();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                    }
+                    _udp.Dispose();
+                    _lifetimeCancellation.Dispose();
+                }
+
+                Disposed = true;
             }
         }
-        // This code added to correctly implement the disposable pattern.
+
         public void Dispose()
         {
-            // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
             Dispose(true);
-            // TODO: uncomment the following line if the finalizer is overridden above.
-            // GC.SuppressFinalize(this);
+            GC.SuppressFinalize(this);
         }
         #endregion
 
-        public static Task<ISocketClient> ConnectTo(IServiceProvider serviceProvider, IPEndPoint endPoint, int? id = null)
+        public static Task<ISocketClient> ConnectTo(
+            IServiceProvider serviceProvider,
+            IPEndPoint endPoint,
+            int? id,
+            CancellationToken lifetimeToken)
         {
             var udp = new UdpClient(0, AddressFamily.InterNetwork);
-            var socketClient = ActivatorUtilities.CreateInstance<UdpSocketClient>(serviceProvider, udp, id);
-
+            var socketClient = ActivatorUtilities.CreateInstance<UdpSocketClient>(
+                serviceProvider,
+                udp,
+                id,
+                lifetimeToken);
             return Task.FromResult<ISocketClient>(socketClient);
         }
     }

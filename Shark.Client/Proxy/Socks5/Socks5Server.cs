@@ -21,7 +21,7 @@ namespace Shark.Client.Proxy.Socks5
             Logger = logger;
         }
 
-        protected override IProxyClient CreateClient(TcpClient tcp, ISharkClient shark)
+        protected override ProxyClient CreateClient(TcpClient tcp, ISharkClient shark)
         {
             return ActivatorUtilities.CreateInstance<Socks5Client>(shark.ServiceProvider, tcp, this, shark);
         }

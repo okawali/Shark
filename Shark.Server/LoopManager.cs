@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Shark.Constants;
 using Shark.Data;
 using Shark.Net;
@@ -12,159 +12,272 @@ namespace Shark.Server
 {
     public static class LoopManager
     {
-        private const int BUFFER_SIZE = 1024 * 1024 * 4;
+        private const int BufferSize = 64 * 1024;
 
-        public static Task RunSharkLoop(this ISharkClient client)
+        public static async Task RunSharkLoop(this ISharkClient client)
         {
-            return Task.Factory.StartNew(async () =>
+            var dataTasks = new Dictionary<int, Task>();
+            try
             {
-                try
+                while (client.CanRead)
                 {
-                    while (client.CanRead)
+                    var block = await client.ReadBlock();
+                    if (!block.IsValid)
                     {
-                        var block = await client.ReadBlock();
-                        if (block.IsValid)
-                        {
-                            client.DecryptBlock(ref block);
-#pragma warning disable CS4014 // no waiting the http processing
-                            if (block.Type == BlockType.CONNECT)
+                        continue;
+                    }
+
+                    client.DecryptBlock(ref block);
+                    switch (block.Type)
+                    {
+                        case BlockType.CONNECT:
+                            TrackOperation(client, client.ProcessConnect(block));
+                            break;
+
+                        case BlockType.DATA:
+                            Task dataTask;
+                            if (dataTasks.TryGetValue(block.Id, out var previous))
                             {
-                                client.ProcessConnect(block);
+                                dataTask = ContinueProcessData(previous, client, block);
                             }
-                            else if (block.Type == BlockType.DATA)
+                            else
                             {
-                                client.ProcessData(block);
+                                dataTask = ProcessData(client, block);
                             }
-#pragma warning restore CS4014
-                            else if (block.Type == BlockType.DISCONNECT)
+                            dataTasks[block.Id] = dataTask;
+                            TrackOperation(client, dataTask);
+                            break;
+
+                        case BlockType.DISCONNECT:
+                            var ids = JsonSerializer.Deserialize<List<int>>(
+                                Encoding.UTF8.GetString(block.Data.Span)) ?? [];
+                            foreach (var id in ids)
                             {
-                                var ids = JsonSerializer.Deserialize<List<int>>(Encoding.UTF8.GetString(block.Data.Span));
-                                foreach (var id in ids)
+                                dataTasks.Remove(id);
+                                if (client.RemoteClients.TryGetValue(id, out var remote))
                                 {
-                                    if (client.RemoteClients.TryGetValue(id, out var item))
+                                    client.RemoteClients.Remove(id);
+                                    remote.Dispose();
+                                    if (remote.Logger.IsEnabled(LogLevel.Debug))
                                     {
-                                        item.Dispose();
-                                        client.RemoteClients.Remove(item.Id);
-                                        item.Logger.LogDebug("Remote request disconnect {0}", id);
+                                        remote.Logger.LogDebug("Remote request disconnect {Id}", id);
                                     }
                                 }
                             }
-                        }
+                            break;
                     }
                 }
-                catch (Exception e)
+            }
+            catch (Exception ex)
+            {
+                if (client.CanRead)
                 {
-                    client.Logger.LogError(e, "Shark errored");
+                    client.Logger.LogError(ex, "Shark errored");
                 }
-            })
-            .Unwrap();
+                if (client is Net.SharkClient serverClient)
+                {
+                    serverClient.AbortConnection();
+                }
+            }
+            finally
+            {
+                dataTasks.Clear();
+            }
         }
 
-        public static async Task ProcessConnect(this ISharkClient client, BlockData block, bool isFastConnect = false, byte[] challengeResp = null)
+        public static async Task ProcessConnect(
+            this ISharkClient client,
+            BlockData block,
+            bool isFastConnect = false,
+            byte[] challengeResp = null)
         {
             ISocketClient remote = null;
-            BlockData resp = new BlockData() { Type = BlockType.CONNECTED, Id = block.Id };
+            var response = new BlockData
+            {
+                Type = BlockType.CONNECTED,
+                Id = block.Id
+            };
+
             if (isFastConnect)
             {
                 if (challengeResp == null)
                 {
-                    throw new ArgumentNullException(nameof(challengeResp), "challege response cannot be null in fast conenct request");
+                    throw new ArgumentNullException(
+                        nameof(challengeResp),
+                        "Challenge response cannot be null in a fast connect request");
                 }
-                var buffer = new byte[4 + challengeResp.Length];
 
+                var buffer = new byte[4 + challengeResp.Length];
                 BitConverter.TryWriteBytes(buffer, client.Id);
                 challengeResp.CopyTo(buffer, 4);
-
-                resp.Data = buffer;
+                response.Data = buffer;
             }
+
             try
             {
-                client.Logger.LogInformation("Process connect {0}", block.Id);
-                var host = JsonSerializer.Deserialize<HostData>(Encoding.UTF8.GetString(block.Data.Span));
+                if (client.Logger.IsEnabled(LogLevel.Information))
+                {
+                    client.Logger.LogInformation("Process connect {Id}", block.Id);
+                }
+                var host = JsonSerializer.Deserialize<HostData>(Encoding.UTF8.GetString(block.Data.Span))
+                    ?? throw new SharkException("Remote host data is invalid");
                 remote = await client.ConnectTo(host.Address, host.Port, host.Type, block.Id);
-                client.Logger.LogInformation("Connected {0}", block.Id);
+                if (client.Logger.IsEnabled(LogLevel.Information))
+                {
+                    client.Logger.LogInformation("Connected {Id}", block.Id);
+                }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                client.Logger.LogError("Connect failed {0}", block.Id);
-                resp.Type = BlockType.CONNECT_FAILED;
+                client.Logger.LogError(ex, "Connect failed {Id}", block.Id);
+                response.Type = BlockType.CONNECT_FAILED;
                 if (remote != null)
                 {
                     remote.Dispose();
-                    client.RemoteClients.Remove(remote.Id);
+                    client.RemoveRemoteClient(remote.Id);
+                    remote = null;
                 }
             }
 
             try
             {
-                client.EncryptBlock(ref resp);
-                await client.WriteBlock(resp);
-                if (resp.Type == BlockType.CONNECTED)
+                client.EncryptBlock(ref response);
+                await client.WriteBlock(response);
+                if (response.Type == BlockType.CONNECTED && remote != null)
                 {
-                    client.RunRemoteLoop(remote);
+                    TrackOperation(client, RunRemoteLoop(client, remote));
                 }
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                client.Logger.LogError(e, "Shark errored");
-                client.Dispose();
-            }
-        }
+                client.Logger.LogError(ex, "Failed to send connect response for {Id}", block.Id);
+                remote?.Dispose();
+                if (remote != null)
+                {
+                    client.RemoveRemoteClient(remote.Id);
+                }
 
-        private static async Task ProcessData(this ISharkClient client, BlockData block)
-        {
-            if (client.RemoteClients.TryGetValue(block.Id, out var http))
-            {
-                try
+                if (client is Net.SharkClient serverClient)
                 {
-                    await http.WriteAsync(block.Data);
+                    serverClient.AbortConnection();
                 }
-                catch (Exception)
+                else
                 {
-                    client.Logger.LogError("Http client errored closed, {0}", http.Id);
-                    client.DisconnectQueue.Enqueue(http.Id);
-                    http.Dispose();
-                    client.RemoveRemoteClient(http.Id);
+                    client.Dispose();
                 }
             }
         }
 
-        private static void RunRemoteLoop(this ISharkClient client, ISocketClient socketClient)
+        private static async Task ContinueProcessData(Task previous, ISharkClient client, BlockData block)
         {
-            var task = Task.Factory.StartNew(async () =>
+            try
             {
-                var buffer = new byte[BUFFER_SIZE];
-                int number = 0;
-                try
+                await previous;
+            }
+            catch (Exception)
+            {
+            }
+
+            if (client.CanRead)
+            {
+                await ProcessData(client, block);
+            }
+        }
+
+        private static async Task ProcessData(ISharkClient client, BlockData block)
+        {
+            if (!client.RemoteClients.TryGetValue(block.Id, out var remote))
+            {
+                return;
+            }
+
+            try
+            {
+                await remote.WriteAsync(block.Data)
+                    .AsTask()
+                    .WaitAsync(SharkDefaults.MaxWaitTime);
+            }
+            catch (Exception ex)
+            {
+                client.Logger.LogError(ex, "Remote client errored and was closed, {Id}", remote.Id);
+                if (client.RemoteClients.Remove(remote.Id) && client.CanRead)
                 {
-                    var readed = 0;
-                    while ((readed = await socketClient.ReadAsync(buffer)) != 0)
+                    client.DisconnectQueue.Enqueue(remote.Id);
+                }
+                remote.Dispose();
+            }
+        }
+
+        private static async Task RunRemoteLoop(ISharkClient client, ISocketClient socketClient)
+        {
+            var buffer = new byte[BufferSize];
+            var number = 0;
+            try
+            {
+                while (client.CanRead && !socketClient.Disposed)
+                {
+                    var read = await socketClient.ReadAsync(buffer);
+                    if (read == 0)
                     {
-                        var block = new BlockData()
-                        {
-
-                            Id = socketClient.Id,
-                            Data = new byte[readed],
-                            BlockNumber = number++,
-                            Type = BlockType.DATA
-                        };
-
-                        new ReadOnlyMemory<byte>(buffer, 0, readed).CopyTo(block.Data);
-
-                        client.EncryptBlock(ref block);
-                        await client.WriteBlock(block);
+                        break;
                     }
-                    socketClient.Logger.LogInformation("Remote closed {0}", socketClient.Id);
+
+                    var data = new byte[read];
+                    new ReadOnlyMemory<byte>(buffer, 0, read).CopyTo(data);
+                    var block = new BlockData
+                    {
+                        Id = socketClient.Id,
+                        Data = data,
+                        BlockNumber = number++,
+                        Type = BlockType.DATA
+                    };
+
+                    client.EncryptBlock(ref block);
+                    await client.WriteBlock(block);
                 }
-                catch (Exception)
+                if (socketClient.Logger.IsEnabled(LogLevel.Information))
                 {
-                    client.Logger.LogError("Remote client errored closed, {0}", socketClient.Id);
+                    socketClient.Logger.LogInformation("Remote closed {Id}", socketClient.Id);
                 }
-                client.DisconnectQueue.Enqueue(socketClient.Id);
+            }
+            catch (Exception ex)
+            {
+                if (client.CanRead)
+                {
+                    client.Logger.LogError(ex, "Remote client errored and was closed, {Id}", socketClient.Id);
+                }
+            }
+            finally
+            {
+                if (client.RemoteClients.Remove(socketClient.Id) && client.CanRead)
+                {
+                    client.DisconnectQueue.Enqueue(socketClient.Id);
+                }
                 socketClient.Dispose();
-                client.RemoveRemoteClient(socketClient.Id);
-            })
-            .Unwrap();
+            }
+        }
+
+        private static void TrackOperation(ISharkClient client, Task operation)
+        {
+            if (client is Net.SharkClient serverClient)
+            {
+                serverClient.TrackOperation(operation);
+                return;
+            }
+
+            _ = ObserveFallbackOperation(client, operation);
+        }
+
+        private static async Task ObserveFallbackOperation(ISharkClient client, Task operation)
+        {
+            try
+            {
+                await operation;
+            }
+            catch (Exception ex)
+            {
+                client.Logger.LogError(ex, "Untracked shark operation failed");
+            }
         }
     }
 }

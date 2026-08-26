@@ -9,7 +9,7 @@ namespace Shark.DependencyInjection
     {
         private readonly IServiceCollection _services;
         private readonly NameServiceFactorySettings _settings;
-        private readonly IDictionary<string, Type> _registrations;
+        private readonly Dictionary<string, Type> _registrations;
 
         internal NamedServiceFactoryBuilder(IServiceCollection services, NameServiceFactorySettings settings)
         {

@@ -103,11 +103,11 @@ namespace Shark.Server
                                     option.EndPoint = new IPEndPoint(IPAddress.Parse(address), port);
                                     option.Backlog = backlog;
                                 })
-                                .Configure<GenericOptions<ICryptor>>(options =>
+                                .Configure<GenericOptions<ISymmetricCipher>>(options =>
                                 {
                                     options.Name = configuration["shark:crypto"];
                                 })
-                                .Configure<GenericOptions<IKeyGenerator>>(options =>
+                                .Configure<GenericOptions<IKeyMaterialDeriver>>(options =>
                                 {
                                     options.Name = configuration["shark:keygen"];
                                 })
@@ -117,6 +117,7 @@ namespace Shark.Server
                                 })
                                 .AddLogging(builder =>
                                 {
+                                    builder.ClearProviders();
                                     builder.AddConsole();
                                     builder.SetMinimumLevel(logLevel);
                                 })

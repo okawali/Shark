@@ -4,12 +4,15 @@ using Shark.Net;
 using Shark.Net.Client;
 using Shark.Utils;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Shark.Client.Proxy
 {
     public abstract class ProxyClient : IProxyClient
     {
+        private readonly TaskCompletionSource<bool> _connectionCompletion;
+
         public int Id { get; private set; }
         public bool Disposed { get; private set; }
         public IProxyServer Server { get; private set; }
@@ -28,12 +31,23 @@ namespace Shark.Client.Proxy
             Id = RandomIdGenerator.NewId();
             Server = server;
             Shark = shark;
+            _connectionCompletion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
 
         public abstract ValueTask<int> ReadAsync(Memory<byte> buffer);
         public abstract ValueTask WriteAsync(ReadOnlyMemory<byte> buffer);
         public abstract Task FlushAsync();
+
+        internal Task<bool> WaitForConnection(TimeSpan timeout, CancellationToken token)
+        {
+            return _connectionCompletion.Task.WaitAsync(timeout, token);
+        }
+
+        protected void CompleteConnection(bool success)
+        {
+            _connectionCompletion.TrySetResult(success);
+        }
 
         #region IDisposable Support
         protected virtual void Dispose(bool disposing)
@@ -42,7 +56,7 @@ namespace Shark.Client.Proxy
             {
                 if (disposing)
                 {
-                    // dispose managed state (managed objects).
+                    _connectionCompletion.TrySetResult(false);
                 }
 
                 // free unmanaged resources (unmanaged objects) and override a finalizer below.
