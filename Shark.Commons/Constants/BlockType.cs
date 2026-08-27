@@ -1,4 +1,4 @@
-﻿namespace Shark.Constants
+namespace Shark.Constants
 {
     public static class BlockType
     {

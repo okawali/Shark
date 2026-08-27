@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 
 namespace Shark.Utils
@@ -38,7 +38,7 @@ namespace Shark.Utils
                     id,
                     data.Slice(8, challengeLength),
                     data.Slice(12 + challengeLength, passwordLength),
-                    data.Slice(12 + challengeLength + passwordLength)
+                    data[(12 + challengeLength + passwordLength)..]
                    );
         }
     }

@@ -1,4 +1,4 @@
-﻿using Shark.Client.Proxy.Socks5.Constants;
+using Shark.Client.Proxy.Socks5.Constants;
 using Shark.Data;
 using System;
 
@@ -26,6 +26,8 @@ namespace Shark.Client.Proxy.Socks5
 
     public class Socks5UdpRelayRequest
     {
+        public const int HeaderSize = UdpPackData.RelayHeaderSize;
+
         public short RSV { private set; get; } = 0x0000;
         public byte Frag { private set; get; }
         public UdpPackData Data { set; get; }
@@ -33,12 +35,29 @@ namespace Shark.Client.Proxy.Socks5
 
         public static Socks5UdpRelayRequest Parse(byte[] buffer)
         {
+            ArgumentNullException.ThrowIfNull(buffer);
+            if (buffer.Length < HeaderSize || buffer[0] != 0 || buffer[1] != 0)
+            {
+                throw new ArgumentException("The SOCKS UDP header is invalid or incomplete.", nameof(buffer));
+            }
             var result = new Socks5UdpRelayRequest
             {
                 Frag = buffer[2],
-                Data = UdpPackData.Parse(new ReadOnlyMemory<byte>(buffer, 3, buffer.Length - 3))
+                Data = UdpPackData.Parse(buffer.AsMemory(HeaderSize))
             };
             return result;
+        }
+
+        public static bool TryGetRelayData(ReadOnlyMemory<byte> buffer, out ReadOnlyMemory<byte> data)
+        {
+            data = default;
+            if (buffer.Length < HeaderSize || buffer.Span[0] != 0 || buffer.Span[1] != 0 || buffer.Span[2] != 0 ||
+                !SocksRemote.TryGetHeaderLength(buffer.Span[HeaderSize..], out _))
+            {
+                return false;
+            }
+            data = buffer[HeaderSize..];
+            return true;
         }
     }
 }

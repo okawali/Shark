@@ -1,4 +1,4 @@
-﻿namespace Shark.DependencyInjection
+namespace Shark.DependencyInjection
 {
     public interface INamedServiceFactory<TService>
         where TService : class

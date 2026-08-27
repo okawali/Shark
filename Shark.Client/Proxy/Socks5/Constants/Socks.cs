@@ -1,4 +1,4 @@
-﻿namespace Shark.Client.Proxy.Socks5.Constants
+namespace Shark.Client.Proxy.Socks5.Constants
 {
     public class Socks
     {

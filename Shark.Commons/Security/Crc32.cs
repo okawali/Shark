@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 
 namespace Shark.Security
@@ -27,85 +28,71 @@ namespace Shark.Security
             _hash = 0x0;
         }
 
-        unsafe protected override void HashCore(byte[] array, int ibStart, int cbSize)
+        /// <summary>
+        /// Computes the CRC-32 value without allocating an instance or copying the input.
+        /// </summary>
+        public static uint Compute(ReadOnlySpan<byte> source)
         {
-            int len = cbSize;
-            uint crc = ~_hash;
-            int i = ibStart;
+            return ComputeCore(source, 0);
+        }
 
-            fixed (byte* bptr = array)
+        protected override void HashCore(byte[] array, int ibStart, int cbSize)
+        {
+            HashCore(array.AsSpan(ibStart, cbSize));
+        }
+
+        protected override void HashCore(ReadOnlySpan<byte> source)
+        {
+            _hash = ComputeCore(source, _hash);
+        }
+
+        private static uint ComputeCore(ReadOnlySpan<byte> source, uint hash)
+        {
+            uint crc = ~hash;
+
+            while (source.Length >= 8)
             {
-                byte* tempPtr = bptr;
-                tempPtr += i;
-                uint* current = (uint*)tempPtr;
-                while (len >= 8)
-                {
-                    if (BitConverter.IsLittleEndian)
-                    {
-                        uint one = *current++ ^ crc;
-                        uint two = *current++;
-                        unchecked
-                        {
-                            crc = CRC32Table[7, one & 0xFF] ^
-                                CRC32Table[6, (one >> 8) & 0xFF] ^
-                                CRC32Table[5, (one >> 16) & 0xFF] ^
-                                CRC32Table[4, one >> 24] ^
-                                CRC32Table[3, two & 0xFF] ^
-                                CRC32Table[2, (two >> 8) & 0xFF] ^
-                                CRC32Table[1, (two >> 16) & 0xFF] ^
-                                CRC32Table[0, two >> 24];
-                        }
-                    }
-                    else
-                    {
-                        uint one = *current++ ^ Swap(crc);
-                        uint two = *current++;
-                        unchecked
-                        {
-                            crc = CRC32Table[0, two & 0xFF] ^
-                               CRC32Table[1, (two >> 8) & 0xFF] ^
-                               CRC32Table[2, (two >> 16) & 0xFF] ^
-                               CRC32Table[3, (two >> 24) & 0xFF] ^
-                               CRC32Table[4, one & 0xFF] ^
-                               CRC32Table[5, (one >> 8) & 0xFF] ^
-                               CRC32Table[6, (one >> 16) & 0xFF] ^
-                               CRC32Table[7, (one >> 24) & 0xFF];
-                        }
-                    }
+                uint one = BinaryPrimitives.ReadUInt32LittleEndian(source) ^ crc;
+                uint two = BinaryPrimitives.ReadUInt32LittleEndian(source[4..]);
 
-                    len -= 8;
-                    i += 8;
-                }
+                crc = CRC32Table[7, one & 0xFF] ^
+                    CRC32Table[6, (one >> 8) & 0xFF] ^
+                    CRC32Table[5, (one >> 16) & 0xFF] ^
+                    CRC32Table[4, one >> 24] ^
+                    CRC32Table[3, two & 0xFF] ^
+                    CRC32Table[2, (two >> 8) & 0xFF] ^
+                    CRC32Table[1, (two >> 16) & 0xFF] ^
+                    CRC32Table[0, two >> 24];
+
+                source = source[8..];
             }
 
-            while (len > 0)
+            foreach (byte value in source)
             {
-                unchecked
-                {
-                    crc = (crc >> 8) ^ CRC32Table[0, (crc & 0xFF) ^ array[i]];
-                    i++;
-                    len--;
-                }
+                crc = (crc >> 8) ^ CRC32Table[0, (crc & 0xFF) ^ value];
             }
 
-            _hash = ~crc;
+            return ~crc;
         }
 
         protected override byte[] HashFinal()
         {
-            var bytes = BitConverter.GetBytes(_hash);
-            if (BitConverter.IsLittleEndian)
-                Array.Reverse(bytes);
-
+            var bytes = new byte[sizeof(uint)];
+            BinaryPrimitives.WriteUInt32BigEndian(bytes, _hash);
             return bytes;
         }
 
-        private static uint Swap(uint x)
+        protected override bool TryHashFinal(Span<byte> destination, out int bytesWritten)
         {
-            return (x >> 24) |
-                ((x >> 8) & 0x0000FF00) |
-                ((x << 8) & 0x00FF0000) |
-                (x << 24);
+            if (destination.Length < sizeof(uint))
+            {
+                bytesWritten = 0;
+                return false;
+            }
+
+            BinaryPrimitives.WriteUInt32BigEndian(destination, _hash);
+            bytesWritten = sizeof(uint);
+            return true;
         }
 
         private static void InitCRC32Table()

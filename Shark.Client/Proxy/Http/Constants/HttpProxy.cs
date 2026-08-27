@@ -1,4 +1,4 @@
-﻿namespace Shark.Client.Proxy.Http.Constants
+namespace Shark.Client.Proxy.Http.Constants
 {
     public class HttpProxy
     {

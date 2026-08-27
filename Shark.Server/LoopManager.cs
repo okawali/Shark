@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Shark.Constants;
 using Shark.Data;
 using Shark.Net;
+using Shark.Server.Net.Internal;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -210,7 +211,7 @@ namespace Shark.Server
 
         private static async Task RunRemoteLoop(ISharkClient client, ISocketClient socketClient)
         {
-            var buffer = new byte[BufferSize];
+            var buffer = new byte[socketClient is UdpSocketClient ? UdpSocketClient.ReceiveBufferSize : BufferSize];
             var number = 0;
             try
             {
@@ -222,12 +223,10 @@ namespace Shark.Server
                         break;
                     }
 
-                    var data = new byte[read];
-                    new ReadOnlyMemory<byte>(buffer, 0, read).CopyTo(data);
                     var block = new BlockData
                     {
                         Id = socketClient.Id,
-                        Data = data,
+                        Data = buffer.AsMemory(0, read),
                         BlockNumber = number++,
                         Type = BlockType.DATA
                     };

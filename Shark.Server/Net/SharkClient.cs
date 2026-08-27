@@ -158,7 +158,29 @@ namespace Shark.Server.Net
         {
             lock (_cipherSync)
             {
-                block.Data = Cipher?.Encrypt(block.Data.Span) ?? block.Data;
+                var cipher = Cipher;
+                if (cipher != null)
+                {
+                    var result = new byte[cipher.GetCiphertextLength(block.Data.Length)];
+                    int written = cipher.Encrypt(block.Data.Span, result);
+                    block.Data = result.AsMemory(0, written);
+                }
+            }
+        }
+
+        public void EncryptBlock(ref BlockData block, ReadOnlySpan<byte> plaintext)
+        {
+            lock (_cipherSync)
+            {
+                var cipher = Cipher;
+                if (cipher == null)
+                {
+                    block.Data = plaintext.ToArray();
+                    return;
+                }
+                var result = new byte[cipher.GetCiphertextLength(plaintext.Length)];
+                int written = cipher.Encrypt(plaintext, result);
+                block.Data = result.AsMemory(0, written);
             }
         }
 
@@ -168,7 +190,32 @@ namespace Shark.Server.Net
             {
                 lock (_cipherSync)
                 {
-                    block.Data = Cipher?.Decrypt(block.Data.Span) ?? block.Data;
+                    var cipher = Cipher;
+                    if (cipher != null)
+                    {
+                        var result = new byte[cipher.GetMaxPlaintextLength(block.Data.Length)];
+                        int written = cipher.Decrypt(block.Data.Span, result);
+                        block.Data = result.AsMemory(0, written);
+                    }
+                }
+            }
+        }
+
+        public void DecryptBlock(ref BlockData block, ReadOnlySpan<byte> ciphertext)
+        {
+            if (block.IsValid)
+            {
+                lock (_cipherSync)
+                {
+                    var cipher = Cipher;
+                    if (cipher == null)
+                    {
+                        block.Data = ciphertext.ToArray();
+                        return;
+                    }
+                    var result = new byte[cipher.GetMaxPlaintextLength(ciphertext.Length)];
+                    int written = cipher.Decrypt(ciphertext, result);
+                    block.Data = result.AsMemory(0, written);
                 }
             }
         }
@@ -398,8 +445,7 @@ namespace Shark.Server.Net
             {
                 var (id, challenge, password, encryptedData) = FastConnectUtils.ParseFactConnectData(block.Data);
                 ConfigureCipher(Authenticator.DecodePassword(password.Span));
-                block.Data = encryptedData.ToArray();
-                DecryptBlock(ref block);
+                DecryptBlock(ref block, encryptedData.Span);
 
                 if (id != 0)
                 {

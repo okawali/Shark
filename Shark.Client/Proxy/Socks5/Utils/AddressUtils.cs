@@ -1,4 +1,4 @@
-﻿using Shark.Client.Proxy.Socks5.Constants;
+using Shark.Client.Proxy.Socks5.Constants;
 using System;
 using System.Net;
 using System.Net.NetworkInformation;

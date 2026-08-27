@@ -1,4 +1,4 @@
-﻿using Shark.Security.Crypto;
+using Shark.Security.Crypto;
 using System;
 using System.Security.Cryptography;
 
@@ -19,36 +19,62 @@ namespace Shark.Plugins.Internal
             _gcm = new AesGcm(keyMaterial.Key, TagSize);
         }
 
-        public byte[] Decrypt(ReadOnlySpan<byte> inputBuffer)
+        public int GetCiphertextLength(int plaintextLength)
         {
-            if (inputBuffer.Length < NonceSize + TagSize)
+            ArgumentOutOfRangeException.ThrowIfNegative(plaintextLength);
+            return checked(plaintextLength + NonceSize + TagSize);
+        }
+
+        public int GetMaxPlaintextLength(int ciphertextLength)
+        {
+            if (ciphertextLength < NonceSize + TagSize)
             {
                 throw new CryptographicException("The AES-GCM payload is too short.");
             }
-
-            var cipherTextLength = inputBuffer.Length - NonceSize - TagSize;
-            var cipherText = inputBuffer[..cipherTextLength];
-            var nonce = inputBuffer.Slice(cipherTextLength, NonceSize);
-            var tag = inputBuffer[^TagSize..];
-            var result = new byte[cipherTextLength];
-
-            _gcm.Decrypt(nonce, cipherText, tag, result);
-
-            return result;
+            return ciphertextLength - NonceSize - TagSize;
         }
 
-        public byte[] Encrypt(ReadOnlySpan<byte> inputBuffer)
+        public int Decrypt(ReadOnlySpan<byte> plain, Span<byte> destination)
         {
-            var result = new byte[NonceSize + inputBuffer.Length + TagSize];
-            var cipherText = result.AsSpan(0, inputBuffer.Length);
-            var nonce = result.AsSpan(inputBuffer.Length, NonceSize);
-            var tag = result.AsSpan(NonceSize + inputBuffer.Length, TagSize);
+            int cipherTextLength = GetMaxPlaintextLength(plain.Length);
+            if (destination.Length < cipherTextLength)
+            {
+                throw new ArgumentException("The destination is too small for the plaintext.", nameof(destination));
+            }
+            if (plain.Overlaps(destination))
+            {
+                throw new ArgumentException("The input and destination must not overlap.", nameof(destination));
+            }
+            var cipherText = plain[..cipherTextLength];
+            var nonce = plain.Slice(cipherTextLength, NonceSize);
+            var tag = plain[^TagSize..];
+
+            _gcm.Decrypt(nonce, cipherText, tag, destination[..cipherTextLength]);
+
+            return cipherTextLength;
+        }
+
+        public int Encrypt(ReadOnlySpan<byte> cipher, Span<byte> destination)
+        {
+            int length = GetCiphertextLength(cipher.Length);
+            if (destination.Length < length)
+            {
+                throw new ArgumentException("The destination is too small for the encrypted payload.", nameof(destination));
+            }
+            if (cipher.Overlaps(destination))
+            {
+                throw new ArgumentException("The input and destination must not overlap.", nameof(destination));
+            }
+            var result = destination[..length];
+            var cipherText = result[..cipher.Length];
+            var nonce = result.Slice(cipher.Length, NonceSize);
+            var tag = result[^TagSize..];
 
             RandomNumberGenerator.Fill(nonce);
 
-            _gcm.Encrypt(nonce, inputBuffer, cipherText, tag);
+            _gcm.Encrypt(nonce, cipher, cipherText, tag);
 
-            return result;
+            return length;
         }
 
         public void Dispose()

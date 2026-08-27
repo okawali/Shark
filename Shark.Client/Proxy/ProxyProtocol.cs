@@ -1,4 +1,4 @@
-﻿namespace Shark.Client.Proxy
+namespace Shark.Client.Proxy
 {
     public enum ProxyProtocol
     {

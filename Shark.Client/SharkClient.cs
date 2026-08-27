@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Shark.Constants;
@@ -93,14 +93,55 @@ namespace Shark.Client
 
         public void EncryptBlock(ref BlockData block)
         {
-            block.Data = Cipher?.Encrypt(block.Data.Span) ?? block.Data;
+            var cipher = Cipher;
+            if (cipher != null)
+            {
+                var result = new byte[cipher.GetCiphertextLength(block.Data.Length)];
+                int written = cipher.Encrypt(block.Data.Span, result);
+                block.Data = result.AsMemory(0, written);
+            }
+        }
+
+        public void EncryptBlock(ref BlockData block, ReadOnlySpan<byte> plaintext)
+        {
+            var cipher = Cipher;
+            if (cipher == null)
+            {
+                block.Data = plaintext.ToArray();
+                return;
+            }
+            var result = new byte[cipher.GetCiphertextLength(plaintext.Length)];
+            int written = cipher.Encrypt(plaintext, result);
+            block.Data = result.AsMemory(0, written);
         }
 
         public void DecryptBlock(ref BlockData block)
         {
             if (block.IsValid)
             {
-                block.Data = Cipher?.Decrypt(block.Data.Span) ?? block.Data;
+                var cipher = Cipher;
+                if (cipher != null)
+                {
+                    var result = new byte[cipher.GetMaxPlaintextLength(block.Data.Length)];
+                    int written = cipher.Decrypt(block.Data.Span, result);
+                    block.Data = result.AsMemory(0, written);
+                }
+            }
+        }
+
+        public void DecryptBlock(ref BlockData block, ReadOnlySpan<byte> ciphertext)
+        {
+            if (block.IsValid)
+            {
+                var cipher = Cipher;
+                if (cipher == null)
+                {
+                    block.Data = ciphertext.ToArray();
+                    return;
+                }
+                var result = new byte[cipher.GetMaxPlaintextLength(ciphertext.Length)];
+                int written = cipher.Decrypt(ciphertext, result);
+                block.Data = result.AsMemory(0, written);
             }
         }
 
@@ -162,7 +203,7 @@ namespace Shark.Client
 
             var resultId = BitConverter.ToInt32(block.Data.Span);
 
-            _authenticator.ValidateChallengeResponse(block.Data.Span.Slice(4));
+            _authenticator.ValidateChallengeResponse(block.Data.Span[4..]);
 
             if (Id == 0)
             {
@@ -249,7 +290,7 @@ namespace Shark.Client
             var block = await ReadHeader();
             if (Logger.IsEnabled(LogLevel.Debug))
             {
-                Logger.LogDebug("Receive {0}", block);
+                Logger.LogDebug("Receive {block}", block);
             }
             if (block.IsValid)
             {

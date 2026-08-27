@@ -1,7 +1,7 @@
-﻿using System;
+using System;
+using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Shark.Data
@@ -16,42 +16,127 @@ namespace Shark.Data
     // Use rfc-1928 Socks5 Address definition
     public class SocksRemote : ICloneable
     {
+        public const int IPv4HeaderSize = 7;
+        public const int IPv6HeaderSize = 19;
+
         public byte AddressType { set; get; }
         public string Address { set; get; }
         public ushort Port { set; get; }
 
         public static SocksRemote Parse(ReadOnlyMemory<byte> buffer, out ReadOnlyMemory<byte> left)
         {
+            if (!TryParse(buffer, out var result, out left))
+            {
+                throw new ArgumentException("The SOCKS address header is invalid or incomplete.", nameof(buffer));
+            }
+            return result;
+        }
 
-            var result = new SocksRemote
+        public static bool TryGetHeaderLength(ReadOnlySpan<byte> buffer, out int length)
+        {
+            length = 0;
+            if (buffer.IsEmpty)
+            {
+                return false;
+            }
+
+            switch (buffer[0])
+            {
+                case SocksRemoteType.IPV4:
+                    length = IPv4HeaderSize;
+                    break;
+                case SocksRemoteType.IPV6:
+                    length = IPv6HeaderSize;
+                    break;
+                case SocksRemoteType.DOMAIN:
+                    if (buffer.Length < 2 || buffer[1] == 0)
+                    {
+                        return false;
+                    }
+                    length = buffer[1] + 4;
+                    break;
+                default:
+                    return false;
+            }
+
+            if (buffer.Length < length)
+            {
+                length = 0;
+                return false;
+            }
+            return true;
+        }
+
+        public static bool TryParse(ReadOnlyMemory<byte> buffer, out SocksRemote result, out ReadOnlyMemory<byte> left)
+        {
+            result = null;
+            left = buffer;
+            if (!TryGetHeaderLength(buffer.Span, out _))
+            {
+                return false;
+            }
+
+            result = new SocksRemote
             {
                 AddressType = buffer.Span[0]
             };
             result.Address = DecodeAddress(buffer[1..], result.AddressType, out var other);
-
-            ushort port = 0;
-            {
-                Span<byte> span = MemoryMarshal.Cast<ushort, byte>(new Span<ushort>(ref port));
-                var mp = other.Span;
-                (span[0], span[1]) = (mp[1], mp[0]);
-            }
-            result.Port = port;
-
+            result.Port = BinaryPrimitives.ReadUInt16BigEndian(other.Span);
             left = other[2..];
-            return result;
+            return true;
         }
 
-        public unsafe byte[] ToBytes()
+        public int GetByteCount()
         {
-            var addressBytes = EncodeAddress(Address, AddressType);
-            var result = new byte[addressBytes.Length + 3];
-            result[0] = AddressType;
-            Buffer.BlockCopy(addressBytes, 0, result, 1, addressBytes.Length);
-            fixed (byte* ptr = result)
+            switch (AddressType)
             {
-                *(ushort*)(ptr + result.Length - 2) = Port;
-                (result[^2], result[^1]) = (result[^1], result[^2]);
+                case SocksRemoteType.IPV4:
+                    return IPv4HeaderSize;
+                case SocksRemoteType.IPV6:
+                    return IPv6HeaderSize;
+                case SocksRemoteType.DOMAIN:
+                    int count = Encoding.ASCII.GetByteCount(Address);
+                    if (count == 0 || count > byte.MaxValue)
+                    {
+                        throw new ArgumentException("A SOCKS domain must contain between 1 and 255 bytes.", nameof(Address));
+                    }
+                    return count + 4;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(AddressType));
             }
+        }
+
+        public int WriteTo(Span<byte> destination)
+        {
+            int length = GetByteCount();
+            if (destination.Length < length)
+            {
+                throw new ArgumentException("The destination is too small for the SOCKS address.", nameof(destination));
+            }
+
+            destination[0] = AddressType;
+            if (AddressType == SocksRemoteType.DOMAIN)
+            {
+                destination[1] = (byte)(length - 4);
+                Encoding.ASCII.GetBytes(Address, destination.Slice(2, length - 4));
+            }
+            else
+            {
+                var address = IPAddress.Parse(Address);
+                var family = AddressType == SocksRemoteType.IPV4 ? AddressFamily.InterNetwork : AddressFamily.InterNetworkV6;
+                if (address.AddressFamily != family || !address.TryWriteBytes(destination.Slice(1, length - 3), out _))
+                {
+                    throw new ArgumentException("The IP address does not match its SOCKS address type.");
+                }
+            }
+            BinaryPrimitives.WriteUInt16BigEndian(destination.Slice(length - 2, 2), Port);
+            return length;
+        }
+
+        public byte[] ToBytes()
+        {
+            var result = new byte[GetByteCount()];
+            WriteTo(result);
             return result;
         }
 

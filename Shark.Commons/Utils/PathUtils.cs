@@ -16,7 +16,7 @@ namespace Shark.Utils
             {
                 var group = match.Groups[1].Value;
 
-                return origin.Substring(0, match.Index) + match.Result(configuration[group]) + origin.Substring(match.Index + match.Length);
+                return origin[..match.Index] + match.Result(configuration[group]) + origin[(match.Index + match.Length)..];
             }
 
             return origin;

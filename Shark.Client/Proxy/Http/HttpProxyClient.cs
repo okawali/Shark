@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Shark.Constants;
 using Shark.Data;
 using Shark.Net;
@@ -253,34 +253,7 @@ namespace Shark.Client.Proxy.Http
                 var reader = _pipe.Reader;
                 try
                 {
-                    int dataNumber = initialNumber;
-                    while (true)
-                    {
-                        var read = await reader.ReadAsync();
-                        var buffer = read.Buffer;
-                        var len = Math.Min(buffer.Length, BUFFER_SIZE);
-                        var used = buffer.Slice(0, len);
-                        buffer = buffer.Slice(len);
-
-                        if (used.Length == 0)
-                        {
-                            if (read.IsCompleted)
-                            {
-                                break;
-                            }
-
-                            continue;
-                        }
-
-                        var block = new BlockData() { Id = Id, BlockNumber = dataNumber++, Type = BlockType.DATA };
-                        var copiedBuffer = used.ToArray();
-
-                        reader.AdvanceTo(used.End);
-
-                        block.Data = copiedBuffer;
-                        Shark.EncryptBlock(ref block);
-                        await Shark.WriteBlock(block);
-                    }
+                    await ForwardData(reader, initialNumber);
                 }
                 catch (Exception e)
                 {

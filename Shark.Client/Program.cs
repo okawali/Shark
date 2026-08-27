@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 
 namespace Shark.Client
 {
@@ -28,10 +29,11 @@ namespace Shark.Client
         {
             var config = Path.Combine(AppContext.BaseDirectory, "config.yml");
             var showHelp = false;
+            var showVersion = false;
 
             var optionSet = new OptionSet()
             {
-                { "c|config=", "config file path, default ${appRoot}/config.yml", (string path) =>
+                { "c|config=", "config file path, default ${appRoot}/config.yml", path =>
                     {
                         if (!string.IsNullOrEmpty(path))
                         {
@@ -39,12 +41,23 @@ namespace Shark.Client
                         }
                     }
                 },
-                { "h|help", "show this message and exit",  h => showHelp = h != null }
+                { "h|help", "show this message and exit",  h => showHelp = h != null },
+                { "v|version", "show version information and exit", v => showVersion = v != null }
             };
 
             try
             {
                 optionSet.Parse(args);
+                if (showVersion)
+                {
+                    var assembly = typeof(Program).Assembly;
+                    var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                        ?? assembly.GetName().Version?.ToString()
+                        ?? "unknown";
+                    var metadataIndex = version.IndexOf('+');
+                    Console.WriteLine(metadataIndex >= 0 ? version[..metadataIndex] : version);
+                    return;
+                }
                 if (!showHelp)
                 {
                     var root = Path.GetDirectoryName(AppContext.BaseDirectory);

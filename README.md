@@ -24,6 +24,14 @@ A proxy ng
 shark-server | shark -h
 -c, --config=VALUE         config file path, default ${appRoot}/config.yml
 -h, --help                 show this message and exit
+-v, --version              show version information and exit
+```
+
+Print only the version number, without build metadata or starting the client or server:
+
+```sh
+shark --version
+shark-server --version
 ```
 
 ### Config

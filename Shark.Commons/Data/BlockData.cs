@@ -1,6 +1,7 @@
-﻿using Shark.Constants;
+using Shark.Constants;
 using Shark.Security;
 using System;
+using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 
 namespace Shark.Data
@@ -40,21 +41,12 @@ namespace Shark.Data
         public Memory<byte> Data;
         public readonly bool IsValid => Type != BlockType.INVALID;
 
-        private readonly bool TryComputeCrc(out uint crc)
+        private readonly uint ComputeCrc()
         {
-            using (Crc32 crc32 = new())
-            {
-                var result = new byte[4];
-                if (crc32.TryComputeHash(Data.Span, result, out var written))
-                {
-                    Array.Reverse(result);
-                    crc = BitConverter.ToUInt32(result);
-                    return true;
-                }
-            }
-            crc = 0;
+            uint crc = Crc32.Compute(Data.Span);
 
-            return false;
+            // Preserve the little-endian CRC field in the native-layout header.
+            return BitConverter.IsLittleEndian ? crc : BinaryPrimitives.ReverseEndianness(crc);
         }
 
         public void Check()
@@ -70,7 +62,7 @@ namespace Shark.Data
                 return;
             }
 
-            if (!TryComputeCrc(out var crc) || crc != BodyCrc32)
+            if (ComputeCrc() != BodyCrc32)
             {
                 MarkInvalid();
                 return;
@@ -93,7 +85,7 @@ namespace Shark.Data
             }
 
             Length = Data.Length;
-            TryComputeCrc(out BodyCrc32);
+            BodyCrc32 = ComputeCrc();
 
 
             fixed (byte* ptr = _bin)

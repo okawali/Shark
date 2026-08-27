@@ -1,16 +1,18 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Shark.Client.Proxy.Socks5.Constants;
 using Shark.Constants;
 using Shark.Data;
 using Shark.Net;
 using Shark.Net.Client;
+using Shark.Utils;
 using System;
 using System.Buffers;
 using System.IO.Pipelines;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 using static Shark.Client.Proxy.PipeConstants;
 
@@ -23,10 +25,16 @@ namespace Shark.Client.Proxy.Socks5
         private readonly Pipe _pipe;
         private Socks5Request _request;
         private bool _socksFailed;
-        private UdpClient _udp;
+        private Socket _udp;
         private HostData _target;
-        private readonly byte[] _udpBuffer;
-        private IPEndPoint _lastEndpoint;
+        private byte[] _udpReceiveBuffer;
+        private byte[] _udpSendBuffer;
+        private IPAddress _udpClientAddress;
+        private volatile IPEndPoint _lastEndpoint;
+        private readonly CancellationTokenSource _lifetimeCancellation = new();
+        private readonly CancellationToken _lifetimeToken;
+        private int _disconnectSignaled;
+        private int _disposeState;
         private readonly bool _supportPrivoxy;
 
         public override ILogger Logger { get; }
@@ -44,12 +52,11 @@ namespace Shark.Client.Proxy.Socks5
         {
             Logger = logger;
             ServiceProvider = serviceProvider;
+            _lifetimeToken = _lifetimeCancellation.Token;
             _client = tcp;
             _stream = _client.GetStream();
             _pipe = new Pipe(DefaultPipeOptions);
             _socksFailed = false;
-            _udpBuffer = new byte[1500];
-            _lastEndpoint = new IPEndPoint(0, 0);
 
             if (!bool.TryParse(configuration["privoxy:supported"], out _supportPrivoxy))
             {
@@ -82,17 +89,17 @@ namespace Shark.Client.Proxy.Socks5
                 }
                 else if (_target.Type == RemoteType.Udp)
                 {
-                    resp = Socks5Response.FromRequest(_request, _udp.Client.LocalEndPoint as IPEndPoint);
+                    resp = Socks5Response.FromRequest(_request, (IPEndPoint)_udp.LocalEndPoint);
                     var data = resp.ToBytes();
                     await WriteAsync(data);
 
-                    StopTcp();
-                    _pipe.Reader.Complete();
                     if (Logger.IsEnabled(LogLevel.Information))
                     {
                         Logger.LogInformation("Udp relay started, {Id}", Id);
                     }
                     CompleteConnection(true);
+                    _ = StartUdpRelay();
+                    _ = MonitorUdpControlConnection();
                 }
             }
             else if (block.Type == BlockType.CONNECT_FAILED)
@@ -104,7 +111,7 @@ namespace Shark.Client.Proxy.Socks5
 
                 _pipe.Reader.Complete();
 
-                Logger.LogWarning($"Connect to {_target} failed, {Id}");
+                Logger.LogWarning("Connect to {Target} failed, {Id}", _target, Id);
 
                 CompleteConnection(false);
 
@@ -114,10 +121,46 @@ namespace Shark.Client.Proxy.Socks5
             {
                 if (_target.IsUdp)
                 {
-                    block.Data.CopyTo(new Memory<byte>(_udpBuffer, 3, block.Data.Length));
+                    if (_lifetimeToken.IsCancellationRequested)
+                    {
+                        return false;
+                    }
+                    var endpoint = _lastEndpoint;
+                    if (endpoint == null || block.Data.Length > _udpSendBuffer.Length - Socks5UdpRelayRequest.HeaderSize ||
+                        !SocksRemote.TryGetHeaderLength(block.Data.Span, out _))
+                    {
+                        if (Logger.IsEnabled(LogLevel.Debug))
+                        {
+                            Logger.LogDebug("Dropped an invalid or oversized UDP reply for {Id}", Id);
+                        }
+                        return !_socksFailed;
+                    }
 
-                    _udpBuffer[0] = _udpBuffer[1] = _udpBuffer[2] = 0;
-                    await _udp.SendAsync(_udpBuffer, block.Data.Length + 3, _lastEndpoint);
+                    _udpSendBuffer.AsSpan(0, Socks5UdpRelayRequest.HeaderSize).Clear();
+                    block.Data.CopyTo(_udpSendBuffer.AsMemory(Socks5UdpRelayRequest.HeaderSize));
+                    try
+                    {
+                        await _udp.SendToAsync(
+                            _udpSendBuffer.AsMemory(0, block.Data.Length + Socks5UdpRelayRequest.HeaderSize),
+                            SocketFlags.None,
+                            endpoint,
+                            _lifetimeToken);
+                    }
+                    catch (SocketException ex)
+                    {
+                        if (Logger.IsEnabled(LogLevel.Debug))
+                        {
+                            Logger.LogDebug(ex, "Dropped a UDP reply that could not be sent for {Id}", Id);
+                        }
+                    }
+                    catch (OperationCanceledException) when (_lifetimeToken.IsCancellationRequested)
+                    {
+                        return false;
+                    }
+                    catch (ObjectDisposedException) when (_lifetimeToken.IsCancellationRequested)
+                    {
+                        return false;
+                    }
                 }
                 else
                 {
@@ -192,7 +235,7 @@ namespace Shark.Client.Proxy.Socks5
                     Port = _request.Remote.Port,
                     Type = RemoteType.Udp
                 };
-                BindUdp(_target);
+                BindUdp();
                 return _target;
             }
 
@@ -207,19 +250,34 @@ namespace Shark.Client.Proxy.Socks5
             throw new SocksException("Command not supported");
         }
 
-        private void BindUdp(HostData hostData)
+        private void BindUdp()
         {
-            _udp = new UdpClient(0);
+            var localAddress = ((IPEndPoint)_client.Client.LocalEndPoint).Address;
+            var remoteAddress = ((IPEndPoint)_client.Client.RemoteEndPoint).Address;
+            localAddress = localAddress.IsIPv4MappedToIPv6 ? localAddress.MapToIPv4() : localAddress;
+            _udpClientAddress = remoteAddress.IsIPv4MappedToIPv6 ? remoteAddress.MapToIPv4() : remoteAddress;
+            var udp = new Socket(localAddress.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+            try
+            {
+                UdpSocketUtils.DisableFragmentation(udp);
+                udp.Bind(new IPEndPoint(localAddress, 0));
+            }
+            catch
+            {
+                udp.Dispose();
+                throw;
+            }
+            _udp = udp;
+            int maximumPayloadLength = UdpSocketUtils.GetMaximumPayloadLength(localAddress.AddressFamily);
+            _udpReceiveBuffer = new byte[maximumPayloadLength];
+            _udpSendBuffer = new byte[maximumPayloadLength];
             if (Logger.IsEnabled(LogLevel.Information))
             {
                 Logger.LogInformation(
-                    "Binded udp on {LocalEndPoint}, starting udp relay, {Id}",
-                    _udp.Client.LocalEndPoint,
+                    "Bound UDP on {LocalEndPoint}, {Id}",
+                    _udp.LocalEndPoint,
                     Id);
             }
-#pragma warning disable CS4014
-            StartUdpRelay();
-#pragma warning restore CS4014
         }
 
         protected async Task<Socks5Request> ReadRequest()
@@ -280,6 +338,19 @@ namespace Shark.Client.Proxy.Socks5
 
         private void CloseConnection()
         {
+            if (Interlocked.Exchange(ref _disconnectSignaled, 1) != 0)
+            {
+                return;
+            }
+            _socksFailed = true;
+            try
+            {
+                _lifetimeCancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
             if (!(_target?.IsUdp ?? false))
             {
                 try
@@ -293,7 +364,7 @@ namespace Shark.Client.Proxy.Socks5
             }
             if (Logger.IsEnabled(LogLevel.Information))
             {
-                Logger.LogInformation("Socks no data to read, closed {0}", Id);
+                Logger.LogInformation("Socks no data to read, closed {Id}", Id);
             }
             RemoteDisconnected?.Invoke(this);
         }
@@ -306,7 +377,7 @@ namespace Shark.Client.Proxy.Socks5
                 while (true)
                 {
                     var memory = writer.GetMemory(BUFFER_SIZE);
-                    int read = await _stream.ReadAsync(memory);
+                    int read = await _stream.ReadAsync(memory, _lifetimeToken);
                     if (read == 0)
                     {
                         break;
@@ -314,13 +385,16 @@ namespace Shark.Client.Proxy.Socks5
 
                     writer.Advance(read);
 
-                    var flushResult = await writer.FlushAsync();
+                    var flushResult = await writer.FlushAsync(_lifetimeToken);
 
                     if (flushResult.IsCompleted)
                     {
                         break;
                     }
                 }
+            }
+            catch (OperationCanceledException) when (_lifetimeToken.IsCancellationRequested)
+            {
             }
             catch (Exception ex)
             {
@@ -343,34 +417,7 @@ namespace Shark.Client.Proxy.Socks5
             {
                 try
                 {
-                    int dataNumber = 0;
-                    while (true)
-                    {
-                        var read = await reader.ReadAsync();
-                        var buffer = read.Buffer;
-                        var len = Math.Min(buffer.Length, BUFFER_SIZE);
-                        var used = buffer.Slice(0, len);
-                        buffer = buffer.Slice(len);
-
-                        if (used.Length == 0)
-                        {
-                            if (read.IsCompleted)
-                            {
-                                break;
-                            }
-
-                            continue;
-                        }
-
-                        var block = new BlockData() { Id = Id, BlockNumber = dataNumber++, Type = BlockType.DATA };
-                        var copiedBuffer = used.ToArray();
-
-                        reader.AdvanceTo(used.End);
-
-                        block.Data = copiedBuffer;
-                        Shark.EncryptBlock(ref block);
-                        await Shark.WriteBlock(block);
-                    }
+                    await ForwardData(reader);
                 }
                 catch (Exception e)
                 {
@@ -387,54 +434,111 @@ namespace Shark.Client.Proxy.Socks5
         {
             return Task.Run(async () =>
             {
+                using var receiveCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetimeToken);
                 try
                 {
                     int dataNumber = 0;
-                    while (true)
+                    var remoteEndPoint = new IPEndPoint(
+                        _udp.AddressFamily == AddressFamily.InterNetworkV6 ? IPAddress.IPv6Any : IPAddress.Any, 0);
+                    while (!_lifetimeToken.IsCancellationRequested)
                     {
-                        var readTask = _udp.ReceiveAsync();
-                        var complete = await Task.WhenAny(readTask, Task.Delay(TimeSpan.FromSeconds(30)));
-
-                        if (complete != readTask)
+                        SocketReceiveMessageFromResult read;
+                        receiveCancellation.CancelAfter(TimeSpan.FromSeconds(30));
+                        try
                         {
-                            Logger.LogWarning("Udp relay receive timeout, {0}", Id);
-                            break;
+                            read = await _udp.ReceiveMessageFromAsync(
+                                _udpReceiveBuffer,
+                                SocketFlags.None,
+                                remoteEndPoint,
+                                receiveCancellation.Token);
+                        }
+                        catch (SocketException ex) when (ex.SocketErrorCode is SocketError.MessageSize or SocketError.ConnectionReset or SocketError.ConnectionRefused)
+                        {
+                            if (Logger.IsEnabled(LogLevel.Debug))
+                            {
+                                Logger.LogDebug(ex, "Dropped a UDP receive error for {Id}", Id);
+                            }
+                            continue;
+                        }
+                        finally
+                        {
+                            receiveCancellation.CancelAfter(Timeout.InfiniteTimeSpan);
                         }
 
-                        var read = readTask.Result;
-                        var remote = read.RemoteEndPoint;
-                        if (read.Buffer.Length == 0)
+                        if ((read.SocketFlags & SocketFlags.Truncated) != 0 ||
+                            !Socks5UdpRelayRequest.TryGetRelayData(_udpReceiveBuffer.AsMemory(0, read.ReceivedBytes), out var data))
                         {
-                            break;
-                        }
-                        var request = Socks5UdpRelayRequest.Parse(read.Buffer);
-                        if (request.Fragged)
-                        {
-                            // drop fragged datas
+                            if (Logger.IsEnabled(LogLevel.Debug))
+                            {
+                                Logger.LogDebug("Dropped an invalid or fragmented SOCKS UDP packet for {Id}", Id);
+                            }
                             continue;
                         }
 
-                        // TODO: address check!
-                        if (_target.Port != 0 && remote.Port != _target.Port)
+                        var remote = (IPEndPoint)read.RemoteEndPoint;
+                        var address = remote.Address.IsIPv4MappedToIPv6 ? remote.Address.MapToIPv4() : remote.Address;
+                        var knownEndpoint = _lastEndpoint;
+                        if (!address.Equals(_udpClientAddress) ||
+                            (_target.Port != 0 && remote.Port != _target.Port) ||
+                            (knownEndpoint != null && remote.Port != knownEndpoint.Port))
                         {
-                            // drop not matched source datas by port
                             continue;
                         }
 
-                        _lastEndpoint = remote;
+                        _lastEndpoint = new IPEndPoint(address, remote.Port);
                         var block = new BlockData() { Id = Id, BlockNumber = dataNumber++, Type = BlockType.DATA };
-                        block.Data = request.Data.ToBytes();
-                        Shark.EncryptBlock(ref block);
+                        Shark.EncryptBlock(ref block, data.Span);
                         await Shark.WriteBlock(block);
                     }
+                }
+                catch (OperationCanceledException) when (_lifetimeToken.IsCancellationRequested)
+                {
+                }
+                catch (OperationCanceledException)
+                {
+                    Logger.LogWarning("UDP relay receive timed out for {Id}", Id);
+                }
+                catch (ObjectDisposedException) when (_lifetimeToken.IsCancellationRequested)
+                {
                 }
                 catch (Exception e)
                 {
                     Logger.LogError(e, "Socks udp relay errored");
                 }
-                CloseConnection();
-                _socksFailed = true;
+                finally
+                {
+                    CloseConnection();
+                }
             });
+        }
+
+        private async Task MonitorUdpControlConnection()
+        {
+            var reader = _pipe.Reader;
+            try
+            {
+                while (!_lifetimeToken.IsCancellationRequested)
+                {
+                    var read = await reader.ReadAsync(_lifetimeToken);
+                    reader.AdvanceTo(read.Buffer.End);
+                    if (read.IsCompleted || read.IsCanceled)
+                    {
+                        break;
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (_lifetimeToken.IsCancellationRequested)
+            {
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "UDP control connection closed for {Id}", Id);
+            }
+            finally
+            {
+                reader.Complete();
+                CloseConnection();
+            }
         }
 
         private void StopTcp()
@@ -457,13 +561,16 @@ namespace Shark.Client.Proxy.Socks5
 
         protected override void Dispose(bool disposing)
         {
-            if (!Disposed)
+            if (Interlocked.Exchange(ref _disposeState, 1) == 0)
             {
                 if (disposing)
                 {
+                    _socksFailed = true;
+                    RemoteDisconnected = null;
+                    _lifetimeCancellation.Cancel();
                     StopTcp();
                     _udp?.Dispose();
-                    RemoteDisconnected = null;
+                    _lifetimeCancellation.Dispose();
                 }
                 base.Dispose(disposing);
             }

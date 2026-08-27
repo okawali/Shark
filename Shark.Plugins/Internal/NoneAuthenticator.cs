@@ -1,4 +1,4 @@
-﻿using Norgerman.Cryptography.Scrypt;
+using Norgerman.Cryptography.Scrypt;
 using Shark.Security.Authentication;
 using System;
 

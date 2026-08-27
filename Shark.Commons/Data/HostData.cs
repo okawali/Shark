@@ -1,4 +1,4 @@
-﻿namespace Shark.Data
+namespace Shark.Data
 {
     public enum RemoteType : byte
     {

@@ -1,4 +1,4 @@
-﻿using Shark.Client.Proxy.Http.Constants;
+using Shark.Client.Proxy.Http.Constants;
 
 namespace Shark.Client.Proxy.Http
 {

@@ -1,4 +1,4 @@
-﻿<Project>
+<Project>
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AssemblyName>shark</AssemblyName>

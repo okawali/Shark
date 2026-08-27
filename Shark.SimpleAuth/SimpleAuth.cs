@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Norgerman.Cryptography.Scrypt;
 using Shark.Security.Authentication;
 using System;

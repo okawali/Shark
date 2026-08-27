@@ -1,4 +1,4 @@
-﻿using Shark.Security.Crypto;
+using Shark.Security.Crypto;
 using Shark.Data;
 using System;
 using System.Collections.Concurrent;
@@ -31,7 +31,10 @@ namespace Shark.Net
 
         void ConfigureCipher(ReadOnlySpan<byte> password);
         void EncryptBlock(ref BlockData block);
+        void EncryptBlock(ref BlockData block, ReadOnlySpan<byte> plaintext);
+
         void DecryptBlock(ref BlockData block);
+        void DecryptBlock(ref BlockData block, ReadOnlySpan<byte> ciphertext);
         void RemoveRemoteClient(int id);
     }
 }

@@ -1,4 +1,4 @@
-﻿using Shark.Data;
+using Shark.Data;
 using System.Threading.Tasks;
 
 namespace Shark.Net.Client
