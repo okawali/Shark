@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Shark.DependencyInjection;
 using Shark.DependencyInjection.Extensions;
+using Shark.Plugins.Internal;
 using Shark.Security.Authentication;
 using Shark.Security.Crypto;
 using Shark.Utils;
@@ -47,7 +48,7 @@ namespace Shark.Plugins
 
             if (Directory.Exists(fullPath))
             {
-                var loaders = new List<McMaster.NETCore.Plugins.PluginLoader>();
+                var contexts = new List<PluginLoadContext>();
 
                 foreach (var dir in Directory.GetDirectories(fullPath))
                 {
@@ -55,14 +56,13 @@ namespace Shark.Plugins
                     var assemblyDll = Path.Join(dir, dirName + ".dll");
                     if (File.Exists(assemblyDll))
                     {
-                        var loader = McMaster.NETCore.Plugins.PluginLoader.CreateFromAssemblyFile(assemblyDll, config => { config.PreferSharedTypes = true; });
-                        loaders.Add(loader);
+                        contexts.Add(new PluginLoadContext(assemblyDll));
                     }
                 }
 
-                foreach (var loader in loaders)
+                foreach (var context in contexts)
                 {
-                    foreach (var type in loader.LoadDefaultAssembly()
+                    foreach (var type in context.LoadPluginAssembly()
                          .GetTypes()
                          .Where(type => !type.IsAbstract && typeof(IPlugin).IsAssignableFrom(type)))
                     {
